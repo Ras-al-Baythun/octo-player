@@ -40,12 +40,12 @@ class ReplaceAnywayShotsTest {
                 )
                 server.answer(
                     "getLibraryActions",
-                    """"libraryActions":{"enabled":true,"allowed":true,"dryRun":false,"admin":true,"actions":["remove","upgrade","restore"],"keepDays":30,"upgradeSource":"Soulseek"}""",
+                    """"libraryActions":{"enabled":true,"allowed":true,"dryRun":false,"admin":true,"actions":["remove","upgrade","restore"],"keepDays":30,"upgradeSource":"Lidarr"}""",
                     type = "octo",
                 )
                 server.answerBy("getAcquisitions") {
                     val rows = when (phase) {
-                        1 -> """{"id":"nd-9","artist":"Bon Iver","title":"Holocene","state":"downloading","progress":0.42,"source":"Soulseek","startedAt":"${at()}","updatedAt":"${at()}","key":"soulseek:r1","kind":"pick","libraryId":"nd-9","quality":"FLAC 16-bit 44.1 kHz"}"""
+                        1 -> """{"id":"nd-9","artist":"Bon Iver","title":"Holocene","state":"downloading","progress":0.42,"source":"Lidarr","startedAt":"${at()}","updatedAt":"${at()}","key":"lidarr:r1","kind":"pick","libraryId":"nd-9","quality":"FLAC 16-bit 44.1 kHz"}"""
                         else -> ""
                     }
                     server.ok(""""acquisitions":{"acquisition":[$rows]}""", type = "octo")
@@ -53,8 +53,8 @@ class ReplaceAnywayShotsTest {
                 server.answerBy("getUpgrades") {
                     val now = at()
                     val job = when (phase) {
-                        1 -> """{"id":"nd-9","title":"Holocene","artist":"Bon Iver","state":"working","acquisition":"soulseek:r1","picked":"FLAC from northwoods","updatedAt":"$now"}"""
-                        2 -> """{"id":"nd-9","title":"Holocene","artist":"Bon Iver","state":"upgraded","detail":"Now the plain song, FLAC 16-bit 44.1 kHz.","acquisition":"soulseek:r1","updatedAt":"$now"}"""
+                        1 -> """{"id":"nd-9","title":"Holocene","artist":"Bon Iver","state":"working","acquisition":"lidarr:r1","picked":"FLAC from Lidarr","updatedAt":"$now"}"""
+                        2 -> """{"id":"nd-9","title":"Holocene","artist":"Bon Iver","state":"upgraded","detail":"Now the plain song, FLAC 16-bit 44.1 kHz.","acquisition":"lidarr:r1","updatedAt":"$now"}"""
                         3 -> """{"id":"nd-9","title":"Holocene","artist":"Bon Iver","state":"failed","detail":"The copy you picked was not the right recording, so it was thrown away. Your copy was kept.","updatedAt":"$now"}"""
                         else -> ""
                     }
@@ -64,11 +64,11 @@ class ReplaceAnywayShotsTest {
                     "findSongs",
                     """"foundSongs":{"id":"f1","state":"done","song":{"artist":"Bon Iver","title":"Holocene","album":"Bon Iver, Bon Iver","duration":420,"libraryId":"nd-9","format":"flac","quality":"FLAC 16-bit 44.1 kHz","size":52100000,
                     "take":"Yours looks like a live recording. Pick the plain song to replace it.","takeKind":"live"},
-                    "source":[{"name":"Soulseek","state":"done","text":"96 files from 31 peers; 3 fit the song","query":["Bon Iver Holocene"]}],
+                    "source":[{"name":"Lidarr","state":"done","text":"9 releases from 3 indexers; 3 fit the song","query":["Bon Iver Holocene"]}],
                     "candidate":[
-                     {"source":"Soulseek","peer":"northwoods","file":"03 Holocene.flac","folder":"Bon Iver/Bon Iver, Bon Iver","title":"Holocene","album":"Bon Iver, Bon Iver","format":"flac","quality":"FLAC 16-bit 44.1 kHz","size":38200000,"length":298,"freeSlot":true,"speed":1800000,"rank":1,"index":0,"id":"c-1","vsYours":"same","vsYoursText":"Same as yours"},
-                     {"source":"Soulseek","peer":"mp3land","file":"Holocene.mp3","title":"Holocene","format":"mp3","quality":"MP3 320 kbps","size":11900000,"length":298,"rank":2,"index":1,"id":"c-2","vsYours":"lower","vsYoursText":"Lower than yours"},
-                     {"source":"Soulseek","peer":"eau_claire","file":"Bon Iver - Holocene.flac","title":"Bon Iver - Holocene","format":"flac","quality":"FLAC 24-bit 96 kHz","size":121000000,"length":298,"queueLength":2,"speed":900000,"rank":3,"index":2,"id":"c-3"}]}""",
+                     {"source":"Lidarr","file":"03 Holocene.flac","folder":"Bon Iver/Bon Iver, Bon Iver","title":"Holocene","album":"Bon Iver, Bon Iver","format":"flac","quality":"FLAC 16-bit 44.1 kHz","size":38200000,"length":298,"rank":1,"index":0,"id":"c-1","vsYours":"same","vsYoursText":"Same as yours"},
+                     {"source":"Lidarr","file":"Holocene.mp3","title":"Holocene","format":"mp3","quality":"MP3 320 kbps","size":11900000,"length":298,"rank":2,"index":1,"id":"c-2","vsYours":"lower","vsYoursText":"Lower than yours"},
+                     {"source":"Lidarr","file":"Bon Iver - Holocene.flac","title":"Bon Iver - Holocene","format":"flac","quality":"FLAC 24-bit 96 kHz","size":121000000,"length":298,"rank":3,"index":2,"id":"c-3"}]}""",
                     type = "octo",
                 )
                 server.answerBy("pickFoundSong") { request ->

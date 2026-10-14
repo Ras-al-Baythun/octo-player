@@ -65,10 +65,8 @@ data class AcquisitionEvent(
 // and `note` says why it would.
 @Serializable
 data class FoundCandidate(
-    // "Soulseek" or "Lidarr".
+    // Where it was found, as the server names it: "Lidarr".
     val source: String = "",
-    // Soulseek: the peer sharing it. Lidarr: the indexer.
-    val peer: String? = null,
     // The file's own name, or a Lidarr release's title.
     val file: String? = null,
     val folder: String? = null,
@@ -83,10 +81,6 @@ data class FoundCandidate(
     val size: Long? = null,
     // In seconds.
     val length: Int? = null,
-    val queueLength: Int? = null,
-    val freeSlot: Boolean? = null,
-    // Bytes a second.
-    val speed: Int? = null,
     val rank: Int? = null,
     val note: String? = null,
     // Its place on a Find songs list. A server older than copy ids takes

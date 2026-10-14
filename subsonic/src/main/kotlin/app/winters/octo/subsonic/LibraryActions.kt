@@ -71,7 +71,7 @@ data class LibraryActions(
     // How many upgrades the server runs at once; older servers leave it out.
     val parallel: Int = 1,
     // Where the server looks for a better copy, in its own words, like
-    // "Soulseek"; null when it does not offer upgrades or does not say.
+    // "Lidarr"; null when it does not offer upgrades or does not say.
     val upgradeSource: String? = null,
     // Whether this user is one of the server's admins. From version 3,
     // removing and every fix need it; older servers leave it out and did

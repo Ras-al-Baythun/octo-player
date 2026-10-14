@@ -56,14 +56,12 @@ fun roleLabel(name: String): String =
 
 fun qualityLabel(quality: RequestQuality): String = when (quality) {
     RequestQuality.Best -> "Best"
-    RequestQuality.Flac -> "FLAC"
     RequestQuality.Mp3 -> "MP3"
 }
 
 // What each quality means, under its name in the request sheet.
 fun qualityDetail(quality: RequestQuality): String = when (quality) {
     RequestQuality.Best -> "The best copy Octo can find"
-    RequestQuality.Flac -> "Lossless FLAC only"
     RequestQuality.Mp3 -> "A smaller MP3"
 }
 
@@ -86,7 +84,6 @@ fun abilityLines(can: FamilyAbilities): List<AbilityLine> = buildList {
             AbilityLine(
                 when (can.requestQuality) {
                     RequestQuality.Best -> "Copies in any quality, up to the best"
-                    RequestQuality.Flac -> "Copies in FLAC or MP3"
                     RequestQuality.Mp3 -> "Copies in MP3"
                 },
             ),

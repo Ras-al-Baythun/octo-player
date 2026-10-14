@@ -30,7 +30,6 @@ enum class AddToLibrary { Direct, Request, SaveOnly }
 @Serializable
 enum class RequestQuality {
     Mp3,
-    Flac,
     Best,
     ;
 

@@ -210,7 +210,6 @@ enum class TrickleState(val wire: String) {
 
     // Someone's own downloads come first.
     Yielding("yielding"),
-    WaitingForSoulseek("waitingForSoulseek"),
     Unknown(""),
     ;
 

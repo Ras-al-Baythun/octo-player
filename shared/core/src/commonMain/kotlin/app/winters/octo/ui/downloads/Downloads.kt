@@ -9,6 +9,7 @@ import app.winters.octo.subsonic.FoundSongs
 import app.winters.octo.subsonic.LogKind
 import app.winters.octo.subsonic.Upgrade
 import app.winters.octo.subsonic.UpgradeStage
+import app.winters.octo.ui.upgrade.WAITING_FOR_SOURCE
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -60,7 +61,7 @@ data class DownloadRow(
     val phase: RowPhase,
     // How far, from 0 to 1, while it downloads and the server knows.
     val fraction: Float?,
-    // The one line under the title: "Downloading from Soulseek, 42%".
+    // The one line under the title: "Downloading from Lidarr, 42%".
     val status: String,
     // The copy being fetched, once chosen: "FLAC 16-bit 44.1 kHz".
     val quality: String?,
@@ -150,7 +151,7 @@ fun rowOf(acquisition: Acquisition, upgrade: Upgrade? = null): DownloadRow {
 fun rowOf(upgrade: Upgrade): DownloadRow {
     val (phase, status) = when (upgrade.stage) {
         UpgradeStage.Queued -> RowPhase.Waiting to "Waiting its turn"
-        UpgradeStage.Waiting -> RowPhase.Waiting to "Waiting for Soulseek"
+        UpgradeStage.Waiting -> RowPhase.Waiting to WAITING_FOR_SOURCE
         UpgradeStage.Working -> RowPhase.Searching to "Looking for a higher quality copy"
         UpgradeStage.Upgraded -> RowPhase.Done to (upgrade.detail?.let(::sentence) ?: "Upgraded")
         UpgradeStage.NotFound -> RowPhase.Failed to "No higher quality copy found"
@@ -409,19 +410,12 @@ fun logTime(at: String?, zone: ZoneId = ZoneId.systemDefault()): String =
         .orEmpty()
 
 // The facts of a copy, in the order a person weighs them: its quality, its
-// size and length, then where it comes from and how soon.
+// size and length, then where it comes from.
 fun candidateFacts(copy: FoundCandidate, locale: Locale = Locale.getDefault()): List<String> = buildList {
     (copy.quality ?: copy.format?.uppercase(Locale.ROOT))?.takeIf(String::isNotBlank)?.let(::add)
     copy.size?.takeIf { it > 0 }?.let { add(bytesText(it, locale)) }
     copy.length?.takeIf { it > 0 }?.let { add(clockText(it)) }
     copy.source.takeIf(String::isNotBlank)?.let(::add)
-    copy.peer?.takeIf(String::isNotBlank)?.let(::add)
-    val queue = copy.queueLength
-    when {
-        copy.freeSlot == true -> add("Free to send now")
-        queue != null && queue > 0 -> add("$queue in queue")
-    }
-    copy.speed?.takeIf { it > 0 }?.let { add(speedText(it, locale)) }
 }
 
 // A copy's kind in one short word for its badge: "FLAC", "MP3", or null.
@@ -475,11 +469,6 @@ fun bytesText(bytes: Long, locale: Locale = Locale.getDefault()): String = when 
 
 // "3:07".
 fun clockText(seconds: Int): String = "%d:%02d".format(Locale.ROOT, seconds / 60, seconds % 60)
-
-// Bytes a second as "1.4 MB/s" or "340 KB/s".
-fun speedText(bytesPerSecond: Int, locale: Locale = Locale.getDefault()): String =
-    if (bytesPerSecond >= 1_048_576) "%.1f MB/s".format(locale, bytesPerSecond / 1_048_576.0)
-    else "%d KB/s".format(locale, maxOf(1, bytesPerSecond / 1024))
 
 // How long ago an ISO time was, or null when it cannot be read.
 internal fun ageMs(at: String?, now: Long): Long? =

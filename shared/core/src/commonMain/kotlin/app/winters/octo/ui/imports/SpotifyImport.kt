@@ -99,7 +99,6 @@ fun TrickleStatus.title(): String = when (stage) {
     TrickleState.Paused -> "Paused"
     TrickleState.Off -> "Off"
     TrickleState.Yielding -> "Waiting for other downloads"
-    TrickleState.WaitingForSoulseek -> "Waiting for Soulseek"
 }
 
 // The trickle's line under it: the pace, when the next song starts, and the counts.
@@ -109,7 +108,6 @@ fun TrickleStatus.line(zone: ZoneId = ZoneId.systemDefault()): String {
     else parts += "Up to ${songsText(perHour)} an hour."
     if (stage == TrickleState.Running && downloading == 0) nextUtc?.let { parts += "Next song at ${time(it, zone)}." }
     if (stage == TrickleState.Yielding) parts += "Someone's own downloads come first."
-    if (stage == TrickleState.WaitingForSoulseek) parts += "It goes on once Soulseek is back."
     val tally = listOf(queued to "waiting", downloading to "fetching", done to "fetched", notFound to "not found", skipped to "skipped")
         .filter { it.first > 0 }.joinToString(", ") { "${it.first} ${it.second}" }
     if (tally.isNotEmpty()) parts += "$tally."

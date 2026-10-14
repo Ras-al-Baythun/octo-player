@@ -163,7 +163,7 @@ import app.winters.octo.subsonic.Song
 import app.winters.octo.subsonic.Upgrade
 import app.winters.octo.subsonic.UpgradeStage
 import app.winters.octo.design.ProgressRing
-import app.winters.octo.ui.upgrade.WAITING_FOR_SOULSEEK
+import app.winters.octo.ui.upgrade.WAITING_FOR_SOURCE
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -857,7 +857,7 @@ private fun SongCell(
 
 // What a song's ring says when hovered.
 internal fun upgradeHint(upgrade: Upgrade): String =
-    if (upgrade.stage == UpgradeStage.Waiting) WAITING_FOR_SOULSEEK else "Looking for higher quality"
+    if (upgrade.stage == UpgradeStage.Waiting) WAITING_FOR_SOURCE else "Looking for higher quality"
 
 // A song's rating as five small stars, the given ones filled.
 @Composable

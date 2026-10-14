@@ -135,7 +135,7 @@ class FamilyParsingTest {
         assertEquals(FamilyRequestKind.Song, pending.kind)
         assertEquals("ext-deezer-song-12345", pending.target)
         assertEquals("ext-deezer-song-12345", pending.coverArt)
-        assertEquals(RequestQuality.Flac, pending.quality)
+        assertEquals(RequestQuality.Best, pending.quality)
         assertEquals(FamilyRequestState.Pending, pending.state)
         assertEquals("2026-10-20T18:00:00Z", pending.created)
         assertNull(pending.decided)
@@ -165,11 +165,11 @@ class FamilyParsingTest {
     @Test
     fun aRequestForASongAlreadySharedComesBackDone() = runTest {
         answer("requestCopyAlreadyShared")
-        val request = client().requestCopy("ext-deezer-song-12345", RequestQuality.Flac)
+        val request = client().requestCopy("ext-deezer-song-12345", RequestQuality.Best)
         val url = server.takeRequest().url
         assertEquals("/rest/requestCopy", url.encodedPath)
         assertEquals("ext-deezer-song-12345", url.queryParameter("id"))
-        assertEquals("Flac", url.queryParameter("quality"))
+        assertEquals("Best", url.queryParameter("quality"))
         assertNull(url.queryParameter("kind"))
         assertEquals(FamilyRequestState.Done, request.state)
         assertEquals(FamilyRequestOutcome.AlreadyShared, request.outcome)
@@ -476,10 +476,9 @@ class FamilyParsingTest {
 
     @Test
     fun qualityLimitsCompareLowestFirst() {
-        assertTrue(RequestQuality.Mp3.allowedUnder(RequestQuality.Flac))
-        assertTrue(RequestQuality.Flac.allowedUnder(RequestQuality.Flac))
-        assertFalse(RequestQuality.Best.allowedUnder(RequestQuality.Flac))
-        assertFalse(RequestQuality.Flac.allowedUnder(RequestQuality.Mp3))
+        assertTrue(RequestQuality.Mp3.allowedUnder(RequestQuality.Best))
+        assertTrue(RequestQuality.Mp3.allowedUnder(RequestQuality.Mp3))
+        assertFalse(RequestQuality.Best.allowedUnder(RequestQuality.Mp3))
         assertTrue(RequestQuality.Best.allowedUnder(RequestQuality.Best))
     }
 

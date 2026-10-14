@@ -39,7 +39,7 @@ class UpgradeModelTest {
     private fun versions(vararg versions: Int) =
         server.answer("getOpenSubsonicExtensions", """"openSubsonicExtensions":[{"name":"octoLibraryActions","versions":[${versions.joinToString(",")}]}]""", type = "octo")
 
-    private fun gate(actions: String = """["remove","upgrade"]""", dryRun: Boolean = false, source: String = "\"Soulseek\"") =
+    private fun gate(actions: String = """["remove","upgrade"]""", dryRun: Boolean = false, source: String = "\"Lidarr\"") =
         server.answer(
             "getLibraryActions",
             """"libraryActions":{"enabled":true,"allowed":true,"dryRun":$dryRun,"actions":$actions,"keepDays":30,"parallel":3,"upgradeSource":$source}""",
@@ -182,12 +182,12 @@ class UpgradeModelTest {
     }
 
     @Test
-    fun waitingForSoulseekIsSaid() = runBlocking {
+    fun waitingForTheSourceIsSaid() = runBlocking {
         val model = ready()
         queueEverything()
         upgrades(row("a", "waiting"))
         model.request(listOf(song("a")))
-        until("the line was said") { "Waiting for Soulseek" in notices }
+        until("the line was said") { "Waiting for the source" in notices }
         assertTrue("a" in model.pending)
     }
 

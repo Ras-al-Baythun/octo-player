@@ -157,7 +157,7 @@ class LibraryActionsTest {
             ok(
                 """"upgrades":[""" +
                     """{"id":"a","title":"Holocene","artist":"Bon Iver","album":"Bon Iver","state":"working","detail":null,"progress":0.25,"updatedAt":"2026-10-03T12:00:00Z"},""" +
-                    """{"id":"b","title":"Towers","artist":"Bon Iver","album":"Bon Iver","state":"notFound","detail":"No Soulseek result was lossless.","progress":null,"updatedAt":"2026-10-03T12:01:00Z"}""" +
+                    """{"id":"b","title":"Towers","artist":"Bon Iver","album":"Bon Iver","state":"notFound","detail":"No Lidarr result was lossless.","progress":null,"updatedAt":"2026-10-03T12:01:00Z"}""" +
                     """]""",
             ),
         )
@@ -174,7 +174,7 @@ class LibraryActionsTest {
         assertEquals(UpgradeStage.NotFound, missing.stage)
         assertEquals(null, missing.fraction)
         assertFalse(missing.stage.pending)
-        assertEquals("No Soulseek result was lossless.", missing.detail)
+        assertEquals("No Lidarr result was lossless.", missing.detail)
     }
 
     @Test

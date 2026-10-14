@@ -28,7 +28,6 @@ fun healthDot(health: Health): HealthDot = when {
 // shows by its key.
 fun serviceName(key: String): String = when (key) {
     "navidrome" -> "Navidrome"
-    "slskd" -> "Soulseek"
     "lidarr" -> "Lidarr"
     "ytDlpShim" -> "Streaming helper"
     "lastfm" -> "Last.fm"

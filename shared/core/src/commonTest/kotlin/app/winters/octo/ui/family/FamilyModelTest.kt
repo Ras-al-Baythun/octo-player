@@ -98,10 +98,10 @@ class FamilyModelTest {
     @Test
     fun aRequestTheFamilyAlreadyHasComesBackDone() = runBlocking {
         server.answer("requestCopy") { """"familyRequest":${request("r5", "Done", "AddedFromFamily")}""" }
-        val made = model.request("ext-deezer-song-5", RequestQuality.Flac)
+        val made = model.request("ext-deezer-song-5", RequestQuality.Best)
         assertEquals(FamilyRequestOutcome.AddedFromFamily, made?.outcome)
         assertEquals("Added from the family library", model.said)
-        assertEquals("Flac", server.called("requestCopy").single().url.queryParameter("quality"))
+        assertEquals("Best", server.called("requestCopy").single().url.queryParameter("quality"))
         // The phone's notices are told it was shown.
         assertEquals(listOf("r5"), answered.map { it.id })
     }

@@ -61,7 +61,7 @@ data class RequestSheet(
 )
 
 // Best first, as a person reads the choices.
-private val SHEET_ORDER = listOf(RequestQuality.Best, RequestQuality.Flac, RequestQuality.Mp3)
+private val SHEET_ORDER = listOf(RequestQuality.Best, RequestQuality.Mp3)
 
 fun requestSheet(me: FamilyMe): RequestSheet {
     val can = me.abilities

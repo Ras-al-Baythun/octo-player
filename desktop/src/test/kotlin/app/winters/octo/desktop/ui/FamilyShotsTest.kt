@@ -21,7 +21,7 @@ import javax.swing.SwingUtilities
 class FamilyShotsTest {
     @get:Rule val folder = TemporaryFolder()
 
-    private val abilities = """"abilities":{"addToLibrary":"Request","requestQuality":"Flac","autoApprove":false,"weeklyRequestLimit":10,
+    private val abilities = """"abilities":{"addToLibrary":"Request","requestQuality":"Mp3","autoApprove":false,"weeklyRequestLimit":10,
         "streamCap":0,"awayCap":160,"away":true,"devicesAtOnce":2,"downloadFiles":false,"offlineCopies":false,"share":false,
         "importPlaylists":true,"cleanOnly":false,"familyPlaylistsEdit":true,"manageFamily":false,"approveRequests":false,
         "storageLimitGb":10,"instantFromFamily":true}"""
@@ -41,7 +41,7 @@ class FamilyShotsTest {
           {"username":"riley","displayName":"Riley","role":"Member","suspended":true,"devices":0,"playingNow":false,"pendingRequests":0,"storageUsedBytes":21000000000,"storageLimitGb":50}],
         "pendingRequests":2,"liveStreams":1}}"""
 
-    private fun request(id: String, title: String, artist: String, state: String, outcome: String? = null, quality: String = "Flac", kind: String = "Song", who: String = "Alex", note: String = "") =
+    private fun request(id: String, title: String, artist: String, state: String, outcome: String? = null, quality: String = "Best", kind: String = "Song", who: String = "Alex", note: String = "") =
         """{"id":"$id","username":"${who.lowercase()}","displayName":"$who","kind":"$kind","target":"ext-deezer-song-$id","title":"$title",
         "artist":"$artist","album":"","coverArt":null,"quality":"$quality","state":"$state","created":"2026-10-20T18:00:00Z",
         "decided":null,"decidedBy":null,"note":"$note","failure":${if (state == "Failed") "\"No real FLAC copy found\"" else "null"},

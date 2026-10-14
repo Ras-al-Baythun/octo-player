@@ -38,7 +38,7 @@ class ImportShotsTest {
                     """{"id":"$id","name":"$name","exportUrl":"https://www.tunemymusic.com/transfer/$id-to-file","tile":"$name"}"""
                 }}],"spotifyConnect":true}""", type = "octo")
                 server.answer("importFile", """"importAction":{"ok":true,"message":"Read 2 lists, 340 songs."}""", type = "octo")
-                val angel = track("s:2", "Angel", "Massive Attack", "Mezzanine", "downloading", "Downloading from Soulseek", 0.42)
+                val angel = track("s:2", "Angel", "Massive Attack", "Mezzanine", "downloading", "Downloading from Lidarr", 0.42)
                 server.answer(
                     "getImports",
                     """"imports":{"spotify":{"configured":true,"connected":true,"account":"Brandon","redirectUri":"http://127.0.0.1/callback",
@@ -53,7 +53,7 @@ class ImportShotsTest {
                       "current":$angel,
                       "next":[${track("s:3", "Ivy", "Frank Ocean", "Blonde", "queued")},${track("s:4", "Pink + White", "Frank Ocean", "Blonde", "queued")}],
                       "recent":[${track("s:5", "Time to Pretend", "MGMT", "Oracular Spectacular", "notFound", "No download source could get this song.")},
-                                ${track("s:6", "Dreams", "Fleetwood Mac", "Rumours", "done", "Fetched from Soulseek")}]}}""",
+                                ${track("s:6", "Dreams", "Fleetwood Mac", "Rumours", "done", "Fetched from Lidarr")}]}}""",
                     type = "octo",
                 )
                 server.answer(

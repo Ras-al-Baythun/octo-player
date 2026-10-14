@@ -29,7 +29,7 @@ import org.junit.Test
 class FamilyRulesTest {
     private fun member(
         add: AddToLibrary = AddToLibrary.Request,
-        max: RequestQuality = RequestQuality.Flac,
+        max: RequestQuality = RequestQuality.Best,
         limit: Int = 10,
         used: Int = 3,
         storageUsed: Long = 0,
@@ -84,19 +84,15 @@ class FamilyRulesTest {
 
     @Test
     fun theSheetHoldsBackQualitiesAboveThePlan() {
-        val sheet = requestSheet(member(max = RequestQuality.Flac))
-        assertEquals(listOf(RequestQuality.Best, RequestQuality.Flac, RequestQuality.Mp3), sheet.choices.map { it.quality })
-        assertEquals(listOf(false, true, true), sheet.choices.map { it.enabled })
+        val sheet = requestSheet(member(max = RequestQuality.Mp3))
+        assertEquals(listOf(RequestQuality.Best, RequestQuality.Mp3), sheet.choices.map { it.quality })
+        assertEquals(listOf(false, true), sheet.choices.map { it.enabled })
         assertEquals("Not on your plan", sheet.choices[0].detail)
-        assertEquals(RequestQuality.Flac, sheet.initial)
+        assertEquals(RequestQuality.Mp3, sheet.initial)
         assertEquals("7 of 10 requests left this week", sheet.quotaLine)
         assertFalse(sheet.quotaUsed)
         assertNull(sheet.storageLine)
         assertEquals("Waits for approval", sheet.approvalLine)
-
-        val mp3 = requestSheet(member(max = RequestQuality.Mp3))
-        assertEquals(listOf(false, false, true), mp3.choices.map { it.enabled })
-        assertEquals(RequestQuality.Mp3, mp3.initial)
         assertEquals(RequestQuality.Best, requestSheet(member(max = RequestQuality.Best)).initial)
     }
 
@@ -130,7 +126,7 @@ class FamilyRulesTest {
     fun thePlanReadsInPlainWords() {
         val lines = abilityLines(member().abilities.copy(streamCap = 192, awayCap = 128, devicesAtOnce = 2, autoApprove = false)).map { it.text }
         assertEquals("Songs you add are saved. Request a copy to keep one in your library", lines[0])
-        assertTrue("Copies in FLAC or MP3" in lines)
+        assertTrue("Copies in any quality, up to the best" in lines)
         assertTrue("Your requests wait for approval" in lines)
         assertTrue("10 requests a week" in lines)
         assertTrue("Room for 10 GB in your library" in lines)
@@ -265,12 +261,12 @@ class FamilyRulesTest {
 
     @Test
     fun requestsAndDevicesReadPlainly() {
-        val done = FamilyRequest(title = "Song", artist = "Artist", state = FamilyRequestState.Done, outcome = FamilyRequestOutcome.Downloaded, quality = RequestQuality.Flac)
+        val done = FamilyRequest(title = "Song", artist = "Artist", state = FamilyRequestState.Done, outcome = FamilyRequestOutcome.Downloaded, quality = RequestQuality.Best)
         assertEquals("Downloaded", requestStateLine(done))
         assertEquals("Added from the family library", requestStateLine(done.copy(outcome = FamilyRequestOutcome.AddedFromFamily)))
         assertEquals("Already in the family library", requestStateLine(done.copy(outcome = FamilyRequestOutcome.AlreadyShared)))
         assertEquals("Failed: No real FLAC copy found", requestStateLine(done.copy(state = FamilyRequestState.Failed, failure = "No real FLAC copy found")))
-        assertEquals("Song · FLAC", requestKindLine(done))
+        assertEquals("Song · Best", requestKindLine(done))
         assertEquals("Song · Artist", requestTitle(done))
         val phone = FamilyDevice(name = "Pixel 9", app = "Octo 1.6 (Android)", place = FamilyPlace.Away, playing = FamilyDevicePlaying("tr-1", "Song", "Artist"))
         assertEquals("Octo 1.6 (Android) · Away · Playing Song by Artist", deviceLine(phone))

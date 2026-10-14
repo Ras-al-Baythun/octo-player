@@ -27,7 +27,7 @@ class FlacUpgradesTest {
     fun theMenuWordsCountSongs() {
         assertEquals("Find higher quality for 1 song", findHigherQualityLabel(1))
         assertEquals("Find higher quality for 9 songs", findHigherQualityLabel(9))
-        assertEquals("Look for a higher quality copy of 9 songs on Soulseek? Each original is kept until its replacement passes.", findHigherQualityQuestion(9, "Soulseek"))
+        assertEquals("Look for a higher quality copy of 9 songs on Lidarr? Each original is kept until its replacement passes.", findHigherQualityQuestion(9, "Lidarr"))
         assertEquals("Look for a higher quality copy of 1 song on Lidarr?", findHigherQualityAsk(1, "Lidarr"))
         assertEquals("Find higher quality", FIND_HIGHER_QUALITY)
     }
@@ -37,12 +37,12 @@ class FlacUpgradesTest {
         assertEquals("Look for a higher quality copy of 9 songs? Each original is kept until its replacement passes.", findHigherQualityQuestion(9))
         assertEquals("Look for a higher quality copy of 2 songs?", findHigherQualityAsk(2, null))
         assertEquals("Look for a higher quality copy of 2 songs?", findHigherQualityAsk(2, "  "))
-        assertFalse(findHigherQualityQuestion(3).contains("Soulseek"))
+        assertFalse(findHigherQualityQuestion(3).contains("Lidarr"))
     }
 
     @Test
     fun theWordsHaveNoDashesAndNameNoFormat() {
-        val words = listOf(findHigherQualityLabel(2), findHigherQualityQuestion(2), FIND_HIGHER_QUALITY, WAITING_FOR_SOULSEEK)
+        val words = listOf(findHigherQualityLabel(2), findHigherQualityQuestion(2), FIND_HIGHER_QUALITY, WAITING_FOR_SOURCE)
         words.forEach { assertFalse(it, it.contains('-') || it.contains('\u2014') || it.contains('\u2013')) }
         // A person reads "higher quality", never the file format it may turn out to be.
         words.forEach { assertFalse(it, it.contains("FLAC", ignoreCase = true)) }
@@ -132,12 +132,12 @@ class FlacUpgradesTest {
     }
 
     @Test
-    fun waitingForSoulseekIsSaidOnceAWait() {
+    fun waitingForTheSourceIsSaidOnceAWait() {
         follow("a", "b")
-        assertEquals(WAITING_FOR_SOULSEEK, follower.seen(listOf(up("a", "waiting"), up("b", "queued"))).notice)
+        assertEquals(WAITING_FOR_SOURCE, follower.seen(listOf(up("a", "waiting"), up("b", "queued"))).notice)
         assertNull(follower.seen(listOf(up("a", "waiting"), up("b", "waiting"))).notice)
         assertNull(follower.seen(listOf(up("a", "working"), up("b", "working"))).notice)
-        assertEquals(WAITING_FOR_SOULSEEK, follower.seen(listOf(up("a", "waiting"), up("b", "working"))).notice)
+        assertEquals(WAITING_FOR_SOURCE, follower.seen(listOf(up("a", "waiting"), up("b", "working"))).notice)
     }
 
     @Test

@@ -38,7 +38,7 @@ import javax.swing.SwingUtilities
 class PopupShotsTest {
     @get:Rule val folder = TemporaryFolder()
 
-    private val abilities = """"abilities":{"addToLibrary":"Request","requestQuality":"Flac","autoApprove":false,"weeklyRequestLimit":10,
+    private val abilities = """"abilities":{"addToLibrary":"Request","requestQuality":"Mp3","autoApprove":false,"weeklyRequestLimit":10,
         "streamCap":0,"awayCap":160,"away":true,"devicesAtOnce":2,"downloadFiles":false,"offlineCopies":false,"share":false,
         "importPlaylists":true,"cleanOnly":false,"familyPlaylistsEdit":true,"manageFamily":false,"approveRequests":false,
         "storageLimitGb":10,"instantFromFamily":true}"""

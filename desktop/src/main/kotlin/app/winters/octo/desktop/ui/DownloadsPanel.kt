@@ -388,7 +388,7 @@ private fun rememberPulse(): Float {
     return alpha
 }
 
-// A small fact in a soft capsule: "FLAC 16-bit 44.1 kHz", "Soulseek".
+// A small fact in a soft capsule: "FLAC 16-bit 44.1 kHz", "Lidarr".
 @Composable
 private fun Tag(text: String) {
     Txt(text, DesktopType.meta, OctoColors.TextSecondary, Modifier.clip(RoundedCornerShape(Corner.ArtS)).background(Chip).padding(horizontal = Space.S, vertical = Space.Xxs))

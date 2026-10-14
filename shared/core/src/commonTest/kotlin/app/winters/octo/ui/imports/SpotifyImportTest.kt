@@ -59,7 +59,7 @@ class SpotifyImportTest {
         val running = TrickleStatus(state = "running", perHour = 20, queued = 3, nextUtc = "2026-10-04T14:05:00Z", done = 2)
         assertEquals("Waiting for the next turn", running.title())
         assertEquals("Up to 20 songs an hour. Next song at 14:05. 3 waiting, 2 fetched.", running.line(ZoneOffset.UTC))
-        assertEquals("Waiting for Soulseek", TrickleStatus(state = "waitingForSoulseek").title())
+        assertEquals("Nothing to fetch", TrickleStatus(state = "somethingNew").title())
         assertEquals("Songs an hour is 0 on the server, so nothing starts.", TrickleStatus(state = "off").line(ZoneOffset.UTC))
         assertEquals("Nothing to fetch", TrickleStatus(state = "idle").title())
     }

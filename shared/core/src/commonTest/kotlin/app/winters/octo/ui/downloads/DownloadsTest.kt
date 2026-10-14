@@ -41,7 +41,7 @@ class DownloadsTest {
         error: String? = null,
         ahead: Int? = null,
     ) = Acquisition(
-        id = key.substringAfter(':'), artist = "Air", title = "Song $key", state = state, progress = progress, source = "Soulseek",
+        id = key.substringAfter(':'), artist = "Air", title = "Song $key", state = state, progress = progress, source = "Lidarr",
         startedAt = startedAt, updatedAt = updatedAt, error = error, note = note, ahead = ahead, key = key, kind = kind,
     )
 
@@ -52,9 +52,9 @@ class DownloadsTest {
     fun eachStageReadsAsOneLine() {
         assertEquals("Waiting, 3 ahead", statusOf(download("s:a", "queued", ahead = 3)))
         assertEquals("Waiting its turn", statusOf(download("s:a", "queued")))
-        assertEquals("Soulseek couldn't get it, trying YouTube", statusOf(download("s:a", "searching", note = "Soulseek couldn't get it, trying YouTube.")))
-        assertEquals("Looking on Soulseek", statusOf(download("s:a", "searching")))
-        assertEquals("Downloading from Soulseek, 42%", statusOf(download("s:a", "downloading", progress = 0.42f)))
+        assertEquals("Lidarr couldn't get it, trying YouTube", statusOf(download("s:a", "searching", note = "Lidarr couldn't get it, trying YouTube.")))
+        assertEquals("Looking on Lidarr", statusOf(download("s:a", "searching")))
+        assertEquals("Downloading from Lidarr, 42%", statusOf(download("s:a", "downloading", progress = 0.42f)))
         assertEquals("Checking the file", statusOf(download("s:a", "verifying")))
         assertEquals("Adding to your library", statusOf(download("s:a", "importing")))
         assertEquals("In your library", statusOf(download("s:a", "done")))
@@ -112,7 +112,7 @@ class DownloadsTest {
             now,
         )
         assertEquals(listOf("upgrade:nd-1", "upgrade:nd-2"), rows.map { it.key })
-        assertEquals("Waiting for Soulseek", rows[0].status)
+        assertEquals("Waiting for the source", rows[0].status)
         assertEquals("No higher quality copy found", rows[1].status)
         assertNull(rows[0].logKey)
     }
@@ -126,10 +126,10 @@ class DownloadsTest {
     @Test
     fun aCopyReadsBestFactFirst() {
         val copy = FoundCandidate(
-            source = "Soulseek", peer = "peer1", file = "03 - Da Funk.flac", title = "Da Funk", format = "flac",
-            quality = "FLAC 16-bit 44.1 kHz", size = 31_000_000, length = 330, freeSlot = true, speed = 1_500_000, rank = 1,
+            source = "Lidarr", file = "03 - Da Funk.flac", title = "Da Funk", format = "flac",
+            quality = "FLAC 16-bit 44.1 kHz", size = 31_000_000, length = 330, rank = 1,
         )
-        assertEquals(listOf("FLAC 16-bit 44.1 kHz", "29.6 MB", "5:30", "Soulseek", "peer1", "Free to send now", "1.4 MB/s"), candidateFacts(copy, Locale.US))
+        assertEquals(listOf("FLAC 16-bit 44.1 kHz", "29.6 MB", "5:30", "Lidarr"), candidateFacts(copy, Locale.US))
         assertEquals("Da Funk", candidateTitle(copy))
         assertEquals("Octo's first choice", candidateVerdict(copy))
         assertEquals("Octo's choice 3", candidateVerdict(copy.copy(rank = 3)))
@@ -137,7 +137,7 @@ class DownloadsTest {
         assertTrue(isLosslessCopy(copy))
         assertTrue(isLosslessCopy(copy.copy(format = "FLAC 24bit")))
         assertFalse(isLosslessCopy(copy.copy(format = "MP3-320")))
-        assertEquals(listOf("MP3", "3 in queue"), candidateFacts(FoundCandidate(source = "", format = "mp3", queueLength = 3), Locale.US))
+        assertEquals(listOf("MP3"), candidateFacts(FoundCandidate(source = "", format = "mp3"), Locale.US))
     }
 
     @Test
@@ -278,7 +278,7 @@ class DownloadsTest {
 
         // What each pick sent as `anyway`, null when it was left out.
         val anyways = mutableListOf<Boolean?>()
-        var answer: suspend () -> PickResult = { PickResult("queued", "Getting it.", "soulseek:x") }
+        var answer: suspend () -> PickResult = { PickResult("queued", "Getting it.", "lidarr:x") }
 
         // The library's copy of the song, when the search is for one.
         var libraryId: String? = null
@@ -306,7 +306,7 @@ class DownloadsTest {
         }
 
         companion object {
-            val copy = FoundCandidate(source = "Soulseek", index = 0, id = "c1")
+            val copy = FoundCandidate(source = "Lidarr", index = 0, id = "c1")
         }
     }
 
@@ -324,7 +324,7 @@ class DownloadsTest {
 
         val picked = watch.pick("f1", FakeFind.copy)
         assertTrue(picked.queued)
-        assertEquals("soulseek:x", watch.picked.value!!.key)
+        assertEquals("lidarr:x", watch.picked.value!!.key)
         assertEquals(listOf("f1" to FakeFind.copy), source.picks)
     }
 
@@ -375,13 +375,13 @@ class DownloadsTest {
         watch.pick("f1", FakeFind.copy)
         val asked = watch.question.value!!
 
-        source.answer = { PickResult("queued", "Getting it.", "soulseek:x") }
+        source.answer = { PickResult("queued", "Getting it.", "lidarr:x") }
         val result = watch.replaceAnyway(asked)!!
         assertTrue(result.queued)
         assertEquals(listOf("f1" to FakeFind.copy, "f1" to FakeFind.copy), source.picks)
         assertEquals(listOf<Boolean?>(false, true), source.anyways)
         assertNull(watch.question.value)
-        assertEquals("soulseek:x", watch.picked.value!!.key)
+        assertEquals("lidarr:x", watch.picked.value!!.key)
 
         // Answered once: a second tap sends nothing.
         assertNull(watch.replaceAnyway(asked))
@@ -444,7 +444,7 @@ class DownloadsTest {
 
         scope.advanceTimeBy(FIND_POLL_MS * 3)
         assertTrue(canPick(watch.found.value, FakeFind.copy))
-        assertFalse("A copy the server did not name", canPick(watch.found.value, FoundCandidate(source = "Soulseek")))
+        assertFalse("A copy the server did not name", canPick(watch.found.value, FoundCandidate(source = "Lidarr")))
         watch.close()
     }
 
@@ -537,11 +537,11 @@ class DownloadsTest {
 
     @Test
     fun aCopysBadgeTakesItsKind_AndTheFactsKeepTheRest() {
-        val flac = FoundCandidate(source = "Soulseek", format = "flac", quality = "FLAC 16-bit 44.1 kHz", size = 36_100_000, length = 329, freeSlot = true)
+        val flac = FoundCandidate(source = "Lidarr", format = "flac", quality = "FLAC 16-bit 44.1 kHz", size = 36_100_000, length = 329)
         assertEquals("FLAC", copyBadge(flac))
-        assertEquals(listOf("16-bit 44.1 kHz", "34.4 MB", "5:29", "Soulseek", "Free to send now"), badgeFacts(flac, Locale.ROOT))
-        val plain = FoundCandidate(source = "Soulseek", format = "flac", quality = "FLAC")
-        assertEquals(listOf("Soulseek"), badgeFacts(plain, Locale.ROOT))
+        assertEquals(listOf("16-bit 44.1 kHz", "34.4 MB", "5:29", "Lidarr"), badgeFacts(flac, Locale.ROOT))
+        val plain = FoundCandidate(source = "Lidarr", format = "flac", quality = "FLAC")
+        assertEquals(listOf("Lidarr"), badgeFacts(plain, Locale.ROOT))
         assertNull(copyBadge(FoundCandidate(source = "Lidarr")))
         assertEquals(listOf("1st choice", "2nd choice", "3rd choice", "4th choice", "11th choice", "22nd choice"), listOf(1, 2, 3, 4, 11, 22).map(::rankWords))
     }
@@ -606,10 +606,10 @@ class DownloadsTest {
 
     @Test
     fun aCopysTagAndTheTakeLine() {
-        val same = FoundCandidate(source = "Soulseek", vsYours = "same", vsYoursText = "Same as yours")
+        val same = FoundCandidate(source = "Lidarr", vsYours = "same", vsYoursText = "Same as yours")
         assertEquals("Same as yours", vsYoursTag(same))
         assertEquals("Compared with your copy: Same as yours", vsYoursSpoken(same))
-        assertNull(vsYoursTag(FoundCandidate(source = "Soulseek")))
+        assertNull(vsYoursTag(FoundCandidate(source = "Lidarr")))
         assertEquals("Yours looks like a live recording. Pick the plain song to replace it.", takeLine(" Yours looks like a live recording. Pick the plain song to replace it. "))
         assertNull(takeLine(" "))
     }

@@ -27,9 +27,9 @@ const val UPGRADE_MISSES = 10
 // The song menu's row.
 const val FIND_HIGHER_QUALITY = "Find higher quality"
 
-// What the line says while Soulseek is out and the server holds on: the
-// server's own outage state, so it names Soulseek.
-const val WAITING_FOR_SOULSEEK = "Waiting for Soulseek"
+// What the line says while the server's source is out and it holds on:
+// the server's own outage state.
+const val WAITING_FOR_SOURCE = "Waiting for the source"
 
 // "1 song", "12 songs".
 fun songsText(count: Int): String = if (count == 1) "1 song" else "$count songs"
@@ -39,8 +39,7 @@ fun findHigherQualityLabel(count: Int): String = "Find higher quality for ${song
 
 // What is asked before an album's songs go to the server, and the
 // promise under it; together they are findHigherQualityQuestion. `source`
-// is where the server says it looks, named only when it said; some servers
-// download through Lidarr, not Soulseek.
+// is where the server says it looks, named only when it said.
 fun findHigherQualityAsk(count: Int, source: String? = null): String {
     val where = source?.trim()?.takeIf(String::isNotEmpty)?.let { " on $it" }.orEmpty()
     return "Look for a higher quality copy of ${songsText(count)}$where?"
@@ -240,7 +239,7 @@ internal fun doneNotice(done: List<Upgrade>, startsWaiting: Boolean = false): St
             else -> add("Skipped ${songsText(skipped.size)}: ${why(skipped[0])}")
         }
         if (rehearsed.isNotEmpty()) add("The server only rehearsed, so nothing changed")
-        if (startsWaiting) add(WAITING_FOR_SOULSEEK)
+        if (startsWaiting) add(WAITING_FOR_SOURCE)
     }
     return parts.joinToString(". ").ifEmpty { null }
 }

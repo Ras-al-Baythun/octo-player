@@ -33,23 +33,21 @@ class DownloadLogTest {
     @Test
     fun readsOneDownloadWithItsLog() = runTest {
         answer("getAcquisition")
-        val one = client().acquisition("soulseek:3kX9Qm")
+        val one = client().acquisition("lidarr:3kX9Qm")
 
         val request = server.takeRequest()
         assertEquals("/rest/getAcquisition", request.url.encodedPath)
-        assertEquals("soulseek:3kX9Qm", request.url.queryParameter("key"))
+        assertEquals("lidarr:3kX9Qm", request.url.queryParameter("key"))
 
-        assertEquals("soulseek:3kX9Qm", one.key)
+        assertEquals("lidarr:3kX9Qm", one.key)
         assertEquals(AcquisitionKind.DOWNLOAD, one.kind)
         assertEquals("FLAC 16-bit 44.1 kHz", one.quality)
-        assertEquals("peer1", one.peer)
         assertEquals(4, one.logLines)
         assertEquals(listOf(LogKind.Queued, LogKind.Search, LogKind.Found, LogKind.Unknown), one.event.map { it.logKind })
         assertEquals("By winters", one.event[0].detail)
         val copy = one.event[2].candidate.single()
-        assertEquals("peer1", copy.peer)
+        assertEquals("Lidarr", copy.source)
         assertEquals(1, copy.rank)
-        assertEquals(true, copy.freeSlot)
         assertEquals(31_000_000L, copy.size)
     }
 
@@ -73,7 +71,7 @@ class DownloadLogTest {
     @Test
     fun pickingSendsTheSearchAndTheCopysId() = runTest {
         answer("pickFoundSong")
-        val result = client().pickFoundSong("a1b2c3", FoundCandidate(source = "Soulseek", index = 3, id = "c-7f3a"))
+        val result = client().pickFoundSong("a1b2c3", FoundCandidate(source = "Lidarr", index = 3, id = "c-7f3a"))
 
         val request = server.takeRequest()
         assertEquals("/rest/pickFoundSong", request.url.encodedPath)
@@ -81,13 +79,13 @@ class DownloadLogTest {
         assertEquals("c-7f3a", request.url.queryParameter("copy"))
         assertNull("The id alone names the copy", request.url.queryParameter("candidate"))
         assertTrue(result.queued)
-        assertEquals("soulseek:3kX9Qm", result.key)
+        assertEquals("lidarr:3kX9Qm", result.key)
     }
 
     @Test
     fun anywayIsSentOnlyWhenAsked_AndAQuestionIsReadBack() = runTest {
         answer("pickFoundSong")
-        client().pickFoundSong("a1b2c3", FoundCandidate(source = "Soulseek", index = 3, id = "c-7f3a"))
+        client().pickFoundSong("a1b2c3", FoundCandidate(source = "Lidarr", index = 3, id = "c-7f3a"))
         assertNull("Not asked, not sent", server.takeRequest().url.queryParameter("anyway"))
 
         val question = "This copy is FLAC like yours, so it is not better. Replace yours anyway?"
@@ -96,7 +94,7 @@ class DownloadLogTest {
                 .body("""{"subsonic-response":{"status":"ok","version":"1.16.1","pick":{"state":"confirm","detail":"$question","key":null}}}""")
                 .build(),
         )
-        val asked = client().pickFoundSong("a1b2c3", FoundCandidate(source = "Soulseek", id = "c-7f3a"), anyway = false)
+        val asked = client().pickFoundSong("a1b2c3", FoundCandidate(source = "Lidarr", id = "c-7f3a"), anyway = false)
         assertEquals("false", server.takeRequest().url.queryParameter("anyway"))
         assertTrue(asked.confirm)
         assertFalse(asked.queued)
@@ -104,7 +102,7 @@ class DownloadLogTest {
         assertNull(asked.key)
 
         answer("pickFoundSong")
-        client().pickFoundSong("a1b2c3", FoundCandidate(source = "Soulseek", id = "c-7f3a"), anyway = true)
+        client().pickFoundSong("a1b2c3", FoundCandidate(source = "Lidarr", id = "c-7f3a"), anyway = true)
         val again = server.takeRequest()
         assertEquals("true", again.url.queryParameter("anyway"))
         assertEquals("c-7f3a", again.url.queryParameter("copy"))
@@ -118,7 +116,7 @@ class DownloadLogTest {
     fun readsHowEachCopyStandsAgainstYours_AndTheTakeLine() = runTest {
         ok(
             """"foundSongs":{"id":"f1","state":"done","song":{"title":"Holocene","libraryId":"nd-1","take":"Yours looks like a live recording. Pick the plain song to replace it.","takeKind":"live"},
-            "candidate":[{"source":"Soulseek","id":"c-1","vsYours":"same","vsYoursText":"Same as yours"},{"source":"Soulseek","id":"c-2"}]}""",
+            "candidate":[{"source":"Lidarr","id":"c-1","vsYours":"same","vsYoursText":"Same as yours"},{"source":"Lidarr","id":"c-2"}]}""",
         )
         val found = client().foundSongs("f1")
         assertEquals("Yours looks like a live recording. Pick the plain song to replace it.", found.song.take)
@@ -130,7 +128,7 @@ class DownloadLogTest {
     @Test
     fun aReadyAnswerCarriesBothCopies() = runTest {
         ok(""""pick":{"state":"ready","detail":null,"key":null,"compare":{"yours":{"quality":"FLAC","length":420,"take":"live recording"},"copy":{"quality":"FLAC","length":298,"take":null}}}""")
-        val pick = client().pickFoundSong("f1", FoundCandidate(source = "Soulseek", id = "c-1"), anyway = false)
+        val pick = client().pickFoundSong("f1", FoundCandidate(source = "Lidarr", id = "c-1"), anyway = false)
         assertTrue(pick.ready)
         assertFalse(pick.queued)
         assertEquals(PickSide("FLAC", 420, "live recording"), pick.compare!!.yours)
@@ -149,7 +147,7 @@ class DownloadLogTest {
     @Test
     fun pickingOnAServerWithoutCopyIdsSendsThePlace() = runTest {
         answer("pickFoundSong")
-        client().pickFoundSong("a1b2c3", FoundCandidate(source = "Soulseek", index = 3))
+        client().pickFoundSong("a1b2c3", FoundCandidate(source = "Lidarr", index = 3))
 
         val request = server.takeRequest()
         assertEquals("3", request.url.queryParameter("candidate"))
@@ -158,7 +156,7 @@ class DownloadLogTest {
 
     @Test
     fun aCopyWithNeitherIdNorPlaceIsNotSent() = runTest {
-        val result = client().pickFoundSong("a1b2c3", FoundCandidate(source = "Soulseek"))
+        val result = client().pickFoundSong("a1b2c3", FoundCandidate(source = "Lidarr"))
         assertFalse(result.queued)
         assertEquals(0, server.requestCount)
     }
@@ -170,7 +168,7 @@ class DownloadLogTest {
         assertNull(server.takeRequest().url.queryParameter("key"))
 
         server.enqueue(MockResponse.Builder().body("""{"subsonic-response":{"status":"ok","version":"1.16.1","cleared":{"count":1}}}""").build())
-        assertEquals(1, client().clearAcquisitions("soulseek:x"))
-        assertEquals("soulseek:x", server.takeRequest().url.queryParameter("key"))
+        assertEquals(1, client().clearAcquisitions("lidarr:x"))
+        assertEquals("lidarr:x", server.takeRequest().url.queryParameter("key"))
     }
 }

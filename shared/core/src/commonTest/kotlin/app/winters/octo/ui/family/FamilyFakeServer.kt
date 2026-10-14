@@ -69,7 +69,7 @@ class FamilyFakeServer : AutoCloseable {
         fun me(
             role: String = "Listener",
             addToLibrary: String = "Request",
-            requestQuality: String = "Flac",
+            requestQuality: String = "Best",
             weeklyLimit: Int = 10,
             used: Int = 3,
             storageUsed: Long = 5_400_000_000,
@@ -95,7 +95,7 @@ class FamilyFakeServer : AutoCloseable {
             username: String = "alex",
         ) = """{"id":"$id","username":"$username","displayName":"${username.replaceFirstChar(Char::titlecase)}","kind":"Song",
             "target":"ext-deezer-song-$id","title":"$title","artist":"Artist","album":"Album","coverArt":null,
-            "quality":"Flac","state":"$state","created":"2026-10-20T18:00:00Z","decided":null,"decidedBy":null,
+            "quality":"Best","state":"$state","created":"2026-10-20T18:00:00Z","decided":null,"decidedBy":null,
             "note":"$note","failure":null,"librarySongId":null,"outcome":${outcome?.let { "\"$it\"" } ?: "null"}}"""
     }
 }

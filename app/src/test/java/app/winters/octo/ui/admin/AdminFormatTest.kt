@@ -89,7 +89,7 @@ class AdminFormatTest {
 
     @Test
     fun servicesHaveFriendlyNames() {
-        assertEquals("Soulseek", serviceName("slskd"))
+        assertEquals("Lidarr", serviceName("lidarr"))
         assertEquals("Streaming helper", serviceName("ytDlpShim"))
         assertEquals("Last.fm", serviceName("lastfm"))
         assertEquals("somethingNew", serviceName("somethingNew"))

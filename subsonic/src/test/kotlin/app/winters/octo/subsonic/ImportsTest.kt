@@ -42,7 +42,7 @@ class ImportsTest {
                 "octoFinishes":false,"endsUtc":"2027-04-01T00:00:00Z"},"reading":{"busy":true,"step":"Reading your liked songs"},
                 "lists":[{"id":"spotify-liked","name":"Liked Songs","source":"spotifyLiked","total":10,"have":6,"missing":2,"queued":1,
                 "downloading":1,"keepPlaylist":false,"getMissing":true,"canRefresh":true,"newField":1}],
-                "trickle":{"state":"waitingForSoulseek","perHour":20,"queued":1,"current":{"key":"spotify:a","title":"Angel","artist":"Massive Attack",
+                "trickle":{"state":"yielding","perHour":20,"queued":1,"current":{"key":"spotify:a","title":"Angel","artist":"Massive Attack",
                 "state":"downloading","progress":0.4}},"libraryProblem":null}""",
             ),
         )
@@ -54,7 +54,7 @@ class ImportsTest {
         assertEquals(ImportSource.SpotifyLiked, liked.origin)
         assertEquals(0.6f, liked.fraction, 0.001f)
         assertEquals(2, liked.coming)
-        assertEquals(TrickleState.WaitingForSoulseek, overview.trickle.stage)
+        assertEquals(TrickleState.Yielding, overview.trickle.stage)
         assertEquals(ImportTrackState.Downloading, overview.trickle.current?.stage)
     }
 

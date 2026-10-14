@@ -50,7 +50,7 @@ class AcquisitionsTest {
         assertEquals(0.42f, one.fraction!!, 0.0001f)
         assertEquals(12345L, one.bytesDone)
         assertEquals(29_000_000L, one.bytesTotal)
-        assertEquals("Soulseek", one.source)
+        assertEquals("Lidarr", one.source)
         assertEquals("2026-09-26T18:00:00Z", one.startedAt)
         assertNull(one.error)
         assertNull(one.libraryId)

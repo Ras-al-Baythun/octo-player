@@ -58,7 +58,7 @@ class FamilyNoticesTest {
     private fun client() = SubsonicClient(server.url("/"), Credentials("alex", "secret"), OkHttpClient())
 
     private fun request(id: String, state: String) =
-        """{"id":"$id","title":"Song $id","artist":"Artist","state":"$state","kind":"Song","quality":"Flac"}"""
+        """{"id":"$id","title":"Song $id","artist":"Artist","state":"$state","kind":"Song","quality":"Best"}"""
 
     @Test
     fun eachDecisionIsToldOnce() = runBlocking {
@@ -72,7 +72,7 @@ class FamilyNoticesTest {
         assertEquals(listOf("Approved"), check.run("home", client()).map { it.title })
         assertTrue(check.run("home", client()).isEmpty())
 
-        mine = """[{"id":"r1","title":"Song r1","artist":"Artist","state":"Done","outcome":"AddedFromFamily","kind":"Song","quality":"Flac"}]"""
+        mine = """[{"id":"r1","title":"Song r1","artist":"Artist","state":"Done","outcome":"AddedFromFamily","kind":"Song","quality":"Best"}]"""
         val added = check.run("home", client()).single()
         assertEquals("Added", added.title)
         assertEquals("Song r1 · Artist. Added from the family library.", added.text)

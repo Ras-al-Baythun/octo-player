@@ -50,7 +50,7 @@ class DownloadsModelTest {
     private fun downloads() {
         server.answer(
             "getAcquisitions",
-            """"acquisitions":{"acquisition":[{"id":"ab","artist":"Air","title":"Sexy Boy","state":"downloading","progress":0.5,"source":"Soulseek","startedAt":"2026-10-04T18:00:00Z","updatedAt":"2026-10-04T18:00:05Z","key":"soulseek:ab","kind":"download","logLines":3}]}""",
+            """"acquisitions":{"acquisition":[{"id":"ab","artist":"Air","title":"Sexy Boy","state":"downloading","progress":0.5,"source":"Lidarr","startedAt":"2026-10-04T18:00:00Z","updatedAt":"2026-10-04T18:00:05Z","key":"lidarr:ab","kind":"download","logLines":3}]}""",
             type = "octo",
         )
         server.answer("getUpgrades", """"upgrades":[{"id":"nd-1","title":"Holocene","artist":"Bon Iver","state":"queued","updatedAt":"2026-10-04T17:59:00Z"}]""", type = "octo")
@@ -64,8 +64,8 @@ class DownloadsModelTest {
         model.start()
         until("the list was read") { model.rows.value.size == 2 }
         assertEquals(true, model.supported)
-        assertEquals(listOf("soulseek:ab", "upgrade:nd-1"), model.rows.value.map { it.key })
-        assertEquals("Downloading from Soulseek, 50%", model.rows.value[0].status)
+        assertEquals(listOf("lidarr:ab", "upgrade:nd-1"), model.rows.value.map { it.key })
+        assertEquals("Downloading from Lidarr, 50%", model.rows.value[0].status)
         model.close()
     }
 
@@ -105,28 +105,28 @@ class DownloadsModelTest {
         downloads()
         server.answer(
             "getAcquisition",
-            """"acquisition":{"id":"ab","title":"Sexy Boy","state":"failed","key":"soulseek:ab","event":[{"at":"2026-10-04T18:00:00Z","kind":"queued","text":"Asked for"},{"at":"2026-10-04T18:00:09Z","kind":"failed","text":"Could not get it","detail":"No copy fits"}]}""",
+            """"acquisition":{"id":"ab","title":"Sexy Boy","state":"failed","key":"lidarr:ab","event":[{"at":"2026-10-04T18:00:00Z","kind":"queued","text":"Asked for"},{"at":"2026-10-04T18:00:09Z","kind":"failed","text":"Could not get it","detail":"No copy fits"}]}""",
             type = "octo",
         )
         val model = DownloadsModel(server.client(), scope)
         model.start()
-        model.showLog("soulseek:ab")
+        model.showLog("lidarr:ab")
         until("the log was read") { model.log.value?.event?.size == 2 }
-        assertEquals(DrawerView.Log("soulseek:ab"), model.view)
+        assertEquals(DrawerView.Log("lidarr:ab"), model.view)
 
         server.answer("findSongs", """"foundSongs":{"id":"f1","state":"searching","song":{"title":"Sexy Boy","artist":"Air"}}""", type = "octo")
         server.answer(
             "getFoundSongs",
-            """"foundSongs":{"id":"f1","state":"done","song":{"title":"Sexy Boy","artist":"Air"},"candidate":[{"source":"Soulseek","peer":"p1","file":"Sexy Boy.flac","format":"flac","rank":1,"index":0,"id":"c-1"}]}""",
+            """"foundSongs":{"id":"f1","state":"done","song":{"title":"Sexy Boy","artist":"Air"},"candidate":[{"source":"Lidarr","file":"Sexy Boy.flac","format":"flac","rank":1,"index":0,"id":"c-1"}]}""",
             type = "octo",
         )
-        model.find("ab", "Sexy Boy", from = "soulseek:ab")
+        model.find("ab", "Sexy Boy", from = "lidarr:ab")
         until("the search ended") { model.found.value?.state == "done" }
         assertEquals("ab", server.calls.last { it.url.pathSegments.last() == "findSongs" }.url.queryParameter("id"))
 
-        server.answer("pickFoundSong", """"pick":{"state":"queued","detail":"Getting FLAC from p1.","key":"soulseek:ab"}""", type = "octo")
+        server.answer("pickFoundSong", """"pick":{"state":"queued","detail":"Getting FLAC from Lidarr.","key":"lidarr:ab"}""", type = "octo")
         model.pick("f1", model.found.value!!.candidate.single())
-        until("the pick opened its log") { model.view == DrawerView.Log("soulseek:ab") }
+        until("the pick opened its log") { model.view == DrawerView.Log("lidarr:ab") }
         val pick = server.calls.last { it.url.pathSegments.last() == "pickFoundSong" }
         assertEquals("f1", pick.url.queryParameter("search"))
         assertEquals("c-1", pick.url.queryParameter("copy"))
@@ -137,11 +137,11 @@ class DownloadsModelTest {
     fun aPickAnsweredAfterTheDrawerClosedLeavesItClosed() = runBlocking {
         extensions("[1,2]")
         downloads()
-        server.answer("findSongs", """"foundSongs":{"id":"f1","state":"done","song":{"title":"Sexy Boy","artist":"Air"},"candidate":[{"source":"Soulseek","peer":"p1","index":0,"id":"c-1"}]}""", type = "octo")
+        server.answer("findSongs", """"foundSongs":{"id":"f1","state":"done","song":{"title":"Sexy Boy","artist":"Air"},"candidate":[{"source":"Lidarr","index":0,"id":"c-1"}]}""", type = "octo")
         val answer = CountDownLatch(1)
         server.answerBy("pickFoundSong") {
             answer.await(5, TimeUnit.SECONDS)
-            server.ok(""""pick":{"state":"queued","detail":"Getting it.","key":"soulseek:ab"}""", type = "octo")
+            server.ok(""""pick":{"state":"queued","detail":"Getting it.","key":"lidarr:ab"}""", type = "octo")
         }
         val model = DownloadsModel(server.client(), scope)
         model.start()
@@ -175,7 +175,7 @@ class DownloadsModelTest {
         downloads()
         server.answer(
             "findSongs",
-            """"foundSongs":{"id":"f1","state":"done","song":{"title":"Holocene","artist":"Bon Iver","libraryId":"nd-1"},"candidate":[{"source":"Soulseek","peer":"p1","format":"flac","index":0,"id":"c-1"}]}""",
+            """"foundSongs":{"id":"f1","state":"done","song":{"title":"Holocene","artist":"Bon Iver","libraryId":"nd-1"},"candidate":[{"source":"Lidarr","format":"flac","index":0,"id":"c-1"}]}""",
             type = "octo",
         )
         server.answerBy("pickFoundSong") { request ->
@@ -186,7 +186,7 @@ class DownloadsModelTest {
                     type = "octo",
                 )
             } else {
-                server.ok(""""pick":{"state":"queued","detail":"Getting FLAC from p1.","key":"soulseek:ho"}""", type = "octo")
+                server.ok(""""pick":{"state":"queued","detail":"Getting FLAC from Lidarr.","key":"lidarr:ho"}""", type = "octo")
             }
         }
         val model = DownloadsModel(server.client(), scope, ended = { ends += it })
@@ -285,7 +285,7 @@ class DownloadsModelTest {
         val model = pickReady("[1,2]")
         assertFalse(model.asksFirst)
         model.pick("f1", model.found.value!!.candidate.single())
-        until("the pick opened its log") { model.view == DrawerView.Log("soulseek:ho") }
+        until("the pick opened its log") { model.view == DrawerView.Log("lidarr:ho") }
         assertNull(picks().single().url.queryParameter("anyway"))
         assertNull(model.question.value)
         model.close()
