@@ -161,6 +161,7 @@ private fun SongActionsPage(
     val canFindSongs by vm.canFindSongs.collectAsStateWithLifecycle()
     val keepsPlaylists by vm.keepsPlaylists.collectAsStateWithLifecycle()
     val choosesVersions by vm.choosesVersions.collectAsStateWithLifecycle()
+    val replacesVersions by vm.replacesVersions.collectAsStateWithLifecycle()
     val upgradable by produceState(emptyList<UpgradeAsk>(), trackId, canUpgrade) { value = if (canUpgrade) vm.upgradable(trackId) else emptyList() }
     val canRemove by vm.canRemove.collectAsStateWithLifecycle()
     val onDisk by produceState(false, trackId, canRemove) { value = canRemove && vm.deletable(trackId) }
@@ -186,6 +187,7 @@ private fun SongActionsPage(
         removeFromMine = inMine,
         keeps = keepsPlaylists,
         chooseVersion = choosesVersions,
+        replaceVersion = replacesVersions,
     )
     // A family member whose songs are saved rather than added.
     val saves = vm.family.outside.addLabel != null

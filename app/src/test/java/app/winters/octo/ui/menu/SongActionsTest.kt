@@ -244,6 +244,22 @@ class SongActionsTest {
         assertEquals(false, SongAction.ChooseVersion in songActions(find = false, radio = false, chooseVersion = true))
     }
 
+    // Where the server also swaps a library song's file for the video's
+    // download, a library song gets Choose version too, before its info.
+    @Test
+    fun aLibrarySongOffersChooseVersionWhereTheServerReplacesFiles() {
+        val actions = songActions(find = false, radio = false, replaceVersion = true)
+        assertEquals(listOf(SongAction.ChooseVersion, Info), actions.takeLast(2))
+        assertEquals(listOf(SongAction.ChooseVersion, Info), songMenuGroups(actions)[3])
+        assertEquals(
+            listOf(DeleteFromDisk, SongAction.ChooseVersion, Info, FindSongs),
+            songActions(find = false, radio = false, replaceVersion = true, disk = true, findSongs = true).takeLast(4),
+        )
+        // A found song plays from the video instead; replacing is not its row.
+        assertEquals(listOf(PlayNext, AddToQueue, Download, Info), songActions(find = true, radio = false, replaceVersion = true))
+        assertEquals(false, SongAction.ChooseVersion in songActions(find = false, radio = false))
+    }
+
     @Test
     fun aManagedMemberCanTakeALibrarySongOutOfTheirOwnLibrary() {
         val groups = songMenuGroups(songActions(find = false, radio = false, removeFromMine = true, disk = true))

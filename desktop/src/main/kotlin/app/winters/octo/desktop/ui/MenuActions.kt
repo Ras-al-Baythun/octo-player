@@ -54,7 +54,9 @@ enum class SongAction {
 // search again on the server's download sources to pick the copy, needs an
 // Octo server that keeps a log of its downloads (`canFind`). Choose
 // version, which picks the video one song found online plays from, needs
-// an Octo server that offers the choice (`canChoose`). Delete from
+// an Octo server that offers the choice (`canChoose`); for a library song
+// it swaps the file for another video's download, which needs a server
+// that replaces files too (`canReplace`). Delete from
 // disk needs an Octo server that lets this user (an admin) take files off
 // its disk (`canDelete`), and is last of all, asked first. In a family, a
 // member who asks for copies gets Request a copy beside the add, for one
@@ -76,6 +78,7 @@ fun songMenuActions(
     // Library songs can be kept on this computer to play offline.
     canKeep: Boolean = false,
     canChoose: Boolean = false,
+    canReplace: Boolean = false,
 ): List<List<SongAction>> {
     val one = count == 1
     val editable = place is SongPlace.Playlist && ownsPlaylist && place.positions.isNotEmpty()
@@ -98,7 +101,7 @@ fun songMenuActions(
         if (one && !outside) listOfNotNull(SongAction.GoToAlbum, SongAction.GoToArtist, SongAction.ShowInFolder.takeIf { inFolder }) else emptyList(),
         listOfNotNull(
             SongAction.Details.takeIf { one },
-            SongAction.ChooseVersion.takeIf { one && outside && canChoose },
+            SongAction.ChooseVersion.takeIf { one && canChoose && (outside || canReplace) },
             SongAction.FindSongs.takeIf { one && canFind },
         ),
         listOfNotNull(SongAction.Move.takeIf { editable }),

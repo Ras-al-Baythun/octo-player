@@ -8,6 +8,11 @@ import kotlinx.serialization.Serializable
 // pick is also the video "Add to your library" fetches from YouTube.
 const val OCTO_PREVIEW = "octoPreview"
 
+// From this version getPreviewChoices and setPreview take a library song's
+// id too, so a file can be replaced by another video's download (see
+// LIBRARY_ACTION_REPLACE).
+const val OCTO_PREVIEW_LIBRARY_VERSION = 2
+
 // Where a choice was found.
 object PreviewSource {
     const val YOUTUBE_MUSIC = "YouTube Music"
@@ -28,6 +33,12 @@ data class PreviewChoice(
 )
 
 // The videos a song could play from, in the server's order: YouTube
-// Music's own audio uploads first.
+// Music's own audio uploads first. For a library song (`library`, from
+// OCTO_PREVIEW_LIBRARY_VERSION) `current` marks the video the file was
+// downloaded from, when known.
 @Serializable
-data class PreviewChoices(val id: String, val choice: List<PreviewChoice> = emptyList())
+data class PreviewChoices(
+    val id: String,
+    val choice: List<PreviewChoice> = emptyList(),
+    val library: Boolean = false,
+)

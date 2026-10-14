@@ -162,7 +162,9 @@ fun menuPlace(context: SongMenuContext, albumId: String, artistId: String): Menu
 // add for a song found online (`requestCopy`), and a managed member can take
 // a library song out of their own library (`removeFromMine`). A found song
 // on a server that lets the listener pick which video it plays from gets
-// Choose version (`chooseVersion`). In the full player the menu ends with
+// Choose version (`chooseVersion`); a library song gets it where the
+// server also swaps its file for the video's download (`replaceVersion`).
+// In the full player the menu ends with
 // where the music plays (Cast) and the Sound page, for a found song as much
 // as a library one.
 fun songActions(
@@ -180,6 +182,7 @@ fun songActions(
     removeFromMine: Boolean = false,
     keeps: Boolean = false,
     chooseVersion: Boolean = false,
+    replaceVersion: Boolean = false,
 ): List<SongAction> = buildList {
     add(SongAction.PlayNext)
     add(SongAction.AddToQueue)
@@ -211,6 +214,7 @@ fun songActions(
         }
         if (removeFromMine) add(SongAction.RemoveFromMyLibrary)
         if (disk) add(SongAction.DeleteFromDisk)
+        if (replaceVersion) add(SongAction.ChooseVersion)
     }
     add(SongAction.Info)
     if (findSongs) add(SongAction.FindSongs)
@@ -323,7 +327,12 @@ class SongMenuViewModel @Inject constructor(
     val choosesVersions: StateFlow<Boolean> = previews.supported
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
-    // Opens the videos a found song could play from.
+    // Whether a library song's file can be swapped for one of those videos'
+    // download: the server lists the library's choices and replaces files.
+    val replacesVersions: StateFlow<Boolean> = previews.replaces
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    // Opens the videos a song could play from, or replace its file with.
     fun chooseVersion(trackId: String) = previews.open(trackId)
 
     // Whether the signed-in Octo server can look for FLACs.

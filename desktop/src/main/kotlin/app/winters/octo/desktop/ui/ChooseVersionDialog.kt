@@ -22,6 +22,8 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import app.winters.octo.design.Corner
+import app.winters.octo.design.GlazeCapsule
+import app.winters.octo.design.MenuTitle
 import app.winters.octo.design.DesktopType
 import app.winters.octo.design.Glyph
 import app.winters.octo.design.IconSize
@@ -36,6 +38,8 @@ import app.winters.octo.desktop.AppState
 import app.winters.octo.desktop.preview.CHOOSE_VERSION_TITLE
 import app.winters.octo.desktop.preview.LOOKING_FOR_VERSIONS
 import app.winters.octo.desktop.preview.NO_VERSIONS
+import app.winters.octo.desktop.preview.replaceBody
+import app.winters.octo.ui.preview.REPLACE_VERSION_TITLE
 import app.winters.octo.desktop.preview.choiceLine
 import app.winters.octo.subsonic.PreviewChoice
 import app.winters.octo.subsonic.Song
@@ -46,7 +50,10 @@ import app.winters.octo.subsonic.Song
 // from now is ticked. A click picks one and shuts the dialog, and the
 // notice line says once the server took it. Escape or a click off the card
 // picks nothing. Only on a server that offers the choice (`previews`).
-fun AppState.chooseVersion(song: Song) {
+// For a library song (not `outside`, or one the server says is in the
+// library) a pick swaps the file for the video's download, so it is asked
+// about first.
+fun AppState.chooseVersion(song: Song, outside: Boolean = true) {
     val model = previews ?: return
     model.load(song)
     popups.showCentred(width = 460.dp, scrim = true) { close ->
@@ -55,6 +62,7 @@ fun AppState.chooseVersion(song: Song) {
         val problem by model.problem.collectAsState()
         val busy by model.busy.collectAsState()
         val choices = listed?.takeIf { it.id == song.id }?.choice
+        val library = !outside || listed?.library == true
         VersionTitle(song)
         val line = when {
             problem != null -> problem
@@ -67,11 +75,31 @@ fun AppState.chooseVersion(song: Song) {
         }
         choices?.forEach { choice ->
             ChoiceRow(choice, enabled = !busy) {
-                model.choose(song, choice)
                 close()
+                if (library) askToReplace(song, choice) else model.choose(song, choice)
             }
         }
         PopupGap()
+    }
+}
+
+// Asks before a library song's file is swapped for a video's download,
+// then asks the server for it.
+private fun AppState.askToReplace(song: Song, choice: PreviewChoice) {
+    val model = previews ?: return
+    val keepDays = health.actions?.keepDays ?: 0
+    popups.showCentred { close ->
+        MenuTitle(REPLACE_VERSION_TITLE)
+        PopupPadding {
+            Txt(replaceBody(song, choice, keepDays), DesktopType.body, OctoColors.TextPrimary, maxLines = 8)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Space.M, Alignment.End)) {
+                GlazeCapsule(null, "Cancel", close)
+                GlazeCapsule(OctoIcons.Playback, "Replace", {
+                    close()
+                    model.replace(song, choice)
+                }, lit = true)
+            }
+        }
     }
 }
 

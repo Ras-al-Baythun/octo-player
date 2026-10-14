@@ -44,6 +44,8 @@ import app.winters.octo.design.OctoColors
 import app.winters.octo.design.OctoIcons
 import app.winters.octo.design.Space
 import app.winters.octo.subsonic.Album
+import app.winters.octo.subsonic.OCTO_PREVIEW
+import app.winters.octo.subsonic.OCTO_PREVIEW_LIBRARY_VERSION
 import app.winters.octo.subsonic.Artist
 import app.winters.octo.subsonic.Playlist
 import app.winters.octo.subsonic.Song
@@ -86,6 +88,14 @@ import app.winters.octo.ui.upgrade.findHigherQualityQuestion
 import kotlinx.coroutines.launch
 
 private enum class MenuPage { Main, Playlists, Rate, Move }
+
+// Whether a library song's file can be swapped for another video's
+// download: the server replaces files and lists choices for library songs
+// too, and the song is not one opened from this computer.
+private fun canReplaceVersion(app: AppState, song: Song?): Boolean =
+    song != null && !isOpenedFile(song.id) &&
+        app.health.actions?.canReplace == true &&
+        app.connection?.supports(OCTO_PREVIEW, OCTO_PREVIEW_LIBRARY_VERSION) == true
 
 // The menu for songs: one, or everything picked in a table. Its rows and
 // groups come from songMenuActions; `place` says where it was opened, for
@@ -145,6 +155,7 @@ fun ColumnScope.SongMenu(
                 canRequest = family.offersRequest,
                 canKeep = true,
                 canChoose = app.previews != null,
+                canReplace = canReplaceVersion(app, one),
                 canRemoveFromMine = offersRemoveFromMyLibrary(me) &&
                     songs.all { offersRemoveOn(it.octoPersonal, index?.marksPersonal == true) },
             ).forEachIndexed { index, group ->
@@ -197,7 +208,7 @@ fun ColumnScope.SongMenu(
                         SongAction.GoToArtist -> MenuRow(label, { one?.artistId?.let { app.navigator.go(Page.Artist(it, one.artist.orEmpty())) }; close() }, OctoIcons.Artist, enabled = !one?.artistId.isNullOrEmpty())
                         SongAction.ShowInFolder -> MenuRow(label, { one?.parent?.let { app.navigator.go(Page.Folder(it, "", focus = one.id)) }; close() }, OctoIcons.Folder)
                         SongAction.Details -> MenuRow(label, { app.showInfo(one); close() }, OctoIcons.Info)
-                        SongAction.ChooseVersion -> MenuRow(label, { close(); one?.let(app::chooseVersion) }, OctoIcons.Playback, more = true)
+                        SongAction.ChooseVersion -> MenuRow(label, { close(); one?.let { app.chooseVersion(it, outside) } }, OctoIcons.Playback, more = true)
                         SongAction.FindSongs -> MenuRow(label, { one?.let(app::findSongs); close() }, OctoIcons.Search)
                         SongAction.Move -> MenuRow(label, { page = MenuPage.Move }, OctoIcons.Sort, more = true)
                         SongAction.RemoveFromPlaylist -> MenuRow(label, {

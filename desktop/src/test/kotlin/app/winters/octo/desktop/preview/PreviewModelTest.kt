@@ -2,6 +2,8 @@ package app.winters.octo.desktop.preview
 
 import app.winters.octo.desktop.FakeServer
 import app.winters.octo.desktop.songJson
+import app.winters.octo.subsonic.LibraryActionResult
+import app.winters.octo.subsonic.LibraryActionState
 import app.winters.octo.subsonic.PreviewChoice
 import app.winters.octo.subsonic.PreviewSource
 import app.winters.octo.subsonic.Song
@@ -14,6 +16,8 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Assert.assertNull
 import org.junit.Test
 
@@ -102,6 +106,68 @@ class PreviewModelTest {
         model.forget()
         assertNull(model.problem.value)
         model.close()
+    }
+
+    // A library song, on a server from OCTO_PREVIEW_LIBRARY_VERSION: the
+    // list says so, and a pick asks for the file to be replaced.
+    @Test
+    fun aLibrarySongsListSaysSo_AndAPickReplacesItsFile() = runBlocking {
+        server.answer(
+            "getPreviewChoices",
+            """"previewChoices":{"id":"lib1","library":true,"choice":[
+                {"videoId":"a1","title":"Lift","channel":"Radiohead","lengthSeconds":227,"source":"YouTube Music","current":true},
+                {"videoId":"b2","title":"Lift (Live at Glastonbury)","channel":"Someone","lengthSeconds":301,"source":"YouTube"}
+            ]}""",
+            type = "octo",
+        )
+        server.answer("libraryAction", """"libraryAction":{"id":"lib1","action":"replace","state":"queued","detail":"Queued."}""", type = "octo")
+        val inLibrary = Song("lib1", "Lift", artist = "Radiohead")
+        var heard: Triple<Song, PreviewChoice, LibraryActionResult>? = null
+        val model = PreviewModel(server.client(), scope, replaced = { s, c, r -> heard = Triple(s, c, r) })
+        model.load(inLibrary)
+        until("the list") { model.choices.value != null }
+        assertTrue(model.choices.value!!.library)
+        // A song found online is never marked as the library's.
+        choices()
+        model.load(song)
+        until("the other list") { model.choices.value?.id == "ext1" }
+        assertFalse(model.choices.value!!.library)
+
+        model.replace(inLibrary, PreviewChoice("b2", "Lift (Live at Glastonbury)", lengthSeconds = 301))
+        until("the answer") { heard != null }
+        assertEquals(LibraryActionState.Queued, heard!!.third.outcome)
+        assertEquals("b2", heard!!.second.videoId)
+        val sent = server.calls.last().url
+        assertEquals("libraryAction", sent.pathSegments.last())
+        assertEquals("lib1", sent.queryParameter("id"))
+        assertEquals("replace", sent.queryParameter("action"))
+        assertEquals("b2", sent.queryParameter("videoId"))
+        assertEquals("301", sent.queryParameter("length"))
+        until("not busy") { !model.busy.value }
+        model.close()
+    }
+
+    @Test
+    fun aReplacementTheServerRefusesIsSaidInPlainWords() = runBlocking {
+        server.fail("libraryAction", 0, "not allowed")
+        val said = mutableListOf<String>()
+        val model = PreviewModel(server.client(), scope, notify = { said += it })
+        model.replace(Song("lib1", "Lift"), PreviewChoice("b2", "Lift"))
+        until("the refusal") { said.isNotEmpty() }
+        assertEquals("Couldn't replace the file: The server said: not allowed", said.single())
+        model.close()
+    }
+
+    @Test
+    fun theQuestionAndNoticesAroundAReplacement() {
+        val lift = Song("lib1", "Lift")
+        val live = PreviewChoice("b2", "Lift (Live)")
+        assertEquals("Lift is replaced by Lift (Live). The file you have now goes to the trash for 30 days.", replaceBody(lift, live, 30))
+        assertEquals("Lift is replaced by Lift (Live). The file you have now goes to the trash for 1 day.", replaceBody(lift, live, 1))
+        assertEquals("Lift is replaced by the chosen video. The file you have now goes to the trash until someone clears it.", replaceBody(lift, PreviewChoice("b2"), 0))
+        assertEquals("Fetching Lift (Live) for Lift", fetchingNotice(lift, live))
+        assertEquals("Queue is full.", replaceRefusedLine(LibraryActionResult(state = "skipped", detail = "Queue is full.")))
+        assertEquals("Couldn't replace the file (failed).", replaceRefusedLine(LibraryActionResult(state = "failed")))
     }
 
     @Test

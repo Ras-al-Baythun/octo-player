@@ -6,6 +6,7 @@ import mockwebserver3.MockWebServer
 import okhttp3.OkHttpClient
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -54,6 +55,24 @@ class PreviewTest {
         assertNull(bare.channel)
         assertNull(bare.lengthSeconds)
         assertEquals(PreviewSource.YOUTUBE, bare.source)
+        // A version 1 server never says "library": it only lists songs found online.
+        assertFalse(choices.library)
+    }
+
+    // From version 2 a library song has choices too, with the video its
+    // file was downloaded from marked when known.
+    @Test
+    fun aLibrarySongsChoicesSaySo() = runTest {
+        answer(
+            """{"subsonic-response":{"status":"ok","previewChoices":{"id":"lib-1","library":true,"choice":[
+            {"videoId":"v1","title":"Song (Official Audio)","channel":"Artist - Topic","lengthSeconds":215,"source":"YouTube Music","current":true},
+            {"videoId":"v2","title":"Song (Live)","lengthSeconds":301}
+            ]}}}""",
+        )
+        val choices = client().previewChoices("lib-1")
+        assertTrue(choices.library)
+        assertEquals("lib-1", choices.id)
+        assertEquals(listOf(true, false), choices.choice.map { it.current })
     }
 
     // The shim is down: the list is empty, not an error.

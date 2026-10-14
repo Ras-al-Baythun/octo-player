@@ -18,6 +18,14 @@ const val LIBRARY_ACTION_REMOVE = "remove"
 // the answer comes back at once and the work runs later.
 const val LIBRARY_ACTION_UPGRADE = "upgrade"
 
+// Swap a library song's file for a download of another video (`videoId`,
+// with its `length` in seconds when known), chosen from the song's
+// getPreviewChoices. Offered while the server's "Wrong version" action is
+// on; it needs no admin. The server queues the download and swaps the
+// file when it lands, keeping tags, favorites and playlists; the old file
+// goes to the trash for keepDays.
+const val LIBRARY_ACTION_REPLACE = "replace"
+
 // From version 3: what Library health fixes a song with, and the way back.
 // Each needs a server admin on the allowed list. Write the tags sent into
 // the song's file, in place.
@@ -99,6 +107,11 @@ data class LibraryActions(
 
     // Whether the server can find a cover and put it in a file.
     val canAddCover: Boolean get() = real && LIBRARY_ACTION_COVER in actions
+
+    // Whether a song's file can really be swapped for another version now.
+    // Like an upgrade it needs no admin, and a rehearsal is not worth a
+    // download that is never swapped in.
+    val canReplace: Boolean get() = enabled && allowed && !dryRun && LIBRARY_ACTION_REPLACE in actions
 
     // Whether a FLAC can really be looked for now. A rehearsal would only
     // fill the server's queue with songs it never swaps, so not then either.

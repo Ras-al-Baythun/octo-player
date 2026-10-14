@@ -49,7 +49,12 @@ import app.winters.octo.desktop.search.Fetches
 import app.winters.octo.desktop.upgrade.UpgradeModel
 import app.winters.octo.desktop.downloads.DownloadsModel
 import app.winters.octo.desktop.preview.PreviewModel
+import app.winters.octo.desktop.preview.fetchingNotice
 import app.winters.octo.desktop.preview.playsFromNotice
+import app.winters.octo.desktop.preview.replaceRefusedLine
+import app.winters.octo.ui.preview.DRY_RUN_NOTICE
+import app.winters.octo.subsonic.LibraryActionResult
+import app.winters.octo.subsonic.LibraryActionState
 import kotlinx.coroutines.delay
 import app.winters.octo.desktop.search.OmniboxState
 import app.winters.octo.desktop.search.SearchModel
@@ -481,7 +486,11 @@ class AppState(
             if (connection.isOcto) DownloadsModel(connection.client, scope, ended = { replaceEnded(it) }) else null,
             // Choosing the video a song found online plays from, where the
             // server lists the extension.
-            if (connection.supports(OCTO_PREVIEW)) PreviewModel(connection.client, scope, chosen = ::versionChosen, notify = { notice = it }) else null,
+            if (connection.supports(OCTO_PREVIEW)) {
+                PreviewModel(connection.client, scope, chosen = ::versionChosen, notify = { notice = it }, replaced = ::versionReplaced)
+            } else {
+                null
+            },
         )
     }
 
@@ -494,6 +503,17 @@ class AppState(
         if (ms > 0) player.lengths.learn(song.id, 0, ms)
         if (player.state.value.current?.song?.id == song.id) player.restartCurrent()
         passingNotice(playsFromNotice(choice))
+    }
+
+    // The server answered a replacement of a library song's file: taken on,
+    // it downloads like an upgrade and the drawer shows how it goes; only
+    // rehearsed, or refused, is said in the server's words.
+    private fun versionReplaced(song: Song, choice: PreviewChoice, result: LibraryActionResult) {
+        when (result.outcome) {
+            LibraryActionState.Queued -> upgradeAsked(fetchingNotice(song, choice))
+            LibraryActionState.Rehearsed -> passingNotice(DRY_RUN_NOTICE)
+            else -> notice = replaceRefusedLine(result)
+        }
     }
 
     // Songs the server took on for a higher quality copy: said in passing,

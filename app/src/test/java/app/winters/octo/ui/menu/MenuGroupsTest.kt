@@ -89,6 +89,11 @@ class MenuGroupsTest {
             listOf(listOf(PlayNext, AddToQueue), listOf(Download), listOf(SongAction.ChooseVersion, Info)),
             songMenuGroups(songActions(find = true, radio = false, chooseVersion = true)),
         )
+        // For a library song, replacing its file sits in the same group.
+        assertEquals(
+            listOf(SongAction.ChooseVersion, Info),
+            songMenuGroups(songActions(find = false, radio = false, replaceVersion = true))[3],
+        )
     }
 
     @Test

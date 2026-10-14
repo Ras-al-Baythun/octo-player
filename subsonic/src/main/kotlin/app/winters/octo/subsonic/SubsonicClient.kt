@@ -204,6 +204,17 @@ class SubsonicClient(
     suspend fun libraryAction(id: String, action: String, with: Map<String, String>): LibraryActionResult =
         get("libraryAction", with + mapOf("id" to id, "action" to action), "libraryAction", LibraryActionResult.serializer())
 
+    // Swaps a library song's file for a download of this video, one of its
+    // previewChoices. The server queues it and answers at once; `length`
+    // is the choice's length in seconds when the list gave one.
+    suspend fun replaceVersion(id: String, videoId: String, length: Int? = null): LibraryActionResult {
+        val with = buildMap {
+            put("videoId", videoId)
+            length?.let { put("length", it.toString()) }
+        }
+        return libraryAction(id, LIBRARY_ACTION_REPLACE, with)
+    }
+
     // The tags a download of the song would get, beside what its file says
     // now. Writes nothing. Version 3.
     suspend fun lookUpTags(id: String): SongLookup =

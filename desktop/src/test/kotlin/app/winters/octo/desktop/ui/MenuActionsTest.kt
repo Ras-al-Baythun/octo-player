@@ -161,6 +161,20 @@ class MenuActionsTest {
     }
 
     @Test
+    fun chooseVersionIsOfferedForALibrarySong_WhereTheServerReplacesFilesToo() {
+        assertEquals(
+            listOf("Song details", "Choose version…"),
+            songMenuActions(1, SongPlace.Library, canChoose = true, canReplace = true)[3].map { songActionLabel(it, false) },
+        )
+        assertEquals(true, songMenuActions(1, SongPlace.Queue(listOf(1L)), canChoose = true, canReplace = true).flatten().contains(SongAction.ChooseVersion))
+        // Still one song at a time, and only with the choice itself on offer.
+        assertEquals(false, songMenuActions(2, SongPlace.Library, canChoose = true, canReplace = true).flatten().contains(SongAction.ChooseVersion))
+        assertEquals(false, songMenuActions(1, SongPlace.Library, canReplace = true).flatten().contains(SongAction.ChooseVersion))
+        // A song found online needs no replacing to be offered the choice.
+        assertEquals(true, songMenuActions(1, SongPlace.Library, outside = true, canChoose = true, canReplace = false).flatten().contains(SongAction.ChooseVersion))
+    }
+
+    @Test
     fun findInFlacNeedsAServerThatCanAndNeverForSongsFoundOnline() {
         // Not offered when the server cannot, or no picked song loses detail.
         assertEquals(false, songMenuActions(1, SongPlace.Library).flatten().contains(SongAction.FindFlac))

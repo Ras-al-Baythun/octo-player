@@ -152,6 +152,45 @@ class LibraryActionsTest {
     }
 
     @Test
+    fun replacingNeedsTheSwitchTheAllowlistARealRunAndTheAction_ButNoAdmin() {
+        val all = LibraryActions(enabled = true, allowed = true, dryRun = false, actions = listOf("remove", "replace"), keepDays = 30, admin = false)
+        assertTrue(all.canReplace)
+        assertFalse(all.canRemove)
+        assertFalse(all.copy(enabled = false).canReplace)
+        assertFalse(all.copy(allowed = false).canReplace)
+        assertFalse(all.copy(dryRun = true).canReplace)
+        assertFalse(all.copy(actions = listOf("remove")).canReplace)
+        assertFalse(LibraryActions().canReplace)
+    }
+
+    @Test
+    fun aReplacementSendsTheVideoAndItsLength_AndIsQueued() = runTest {
+        answer(ok(""""libraryAction":{"id":"abc","action":"replace","state":"queued","detail":"Queued."}"""))
+        val result = client().replaceVersion("abc", "v2", 301)
+
+        val request = server.takeRequest()
+        assertEquals("/rest/libraryAction", request.url.encodedPath)
+        assertEquals("abc", request.url.queryParameter("id"))
+        assertEquals("replace", request.url.queryParameter("action"))
+        assertEquals("v2", request.url.queryParameter("videoId"))
+        assertEquals("301", request.url.queryParameter("length"))
+        assertEquals(LibraryActionState.Queued, result.outcome)
+        assertEquals("replace", result.action)
+    }
+
+    @Test
+    fun aReplacementWithoutALengthLeavesItOut() = runTest {
+        answer(ok(""""libraryAction":{"id":"abc","action":"replace","state":"rehearsed","detail":"Would fetch v3."}"""))
+        val result = client().replaceVersion("abc", "v3", null)
+
+        val request = server.takeRequest()
+        assertEquals("v3", request.url.queryParameter("videoId"))
+        assertEquals(null, request.url.queryParameter("length"))
+        assertEquals(LibraryActionState.Rehearsed, result.outcome)
+        assertEquals("Would fetch v3.", result.detail)
+    }
+
+    @Test
     fun readsTheUpgradesAskedFor() = runTest {
         answer(
             ok(
