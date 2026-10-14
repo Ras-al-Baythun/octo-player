@@ -168,6 +168,24 @@ class SubsonicClient(
         return get("pickFoundSong", params, "pick", PickResult.serializer())
     }
 
+    // The videos a song found online could play from. Only for servers
+    // that list the octoPreview extension.
+    suspend fun previewChoices(id: String): PreviewChoices =
+        get("getPreviewChoices", mapOf("id" to id), "previewChoices", PreviewChoices.serializer())
+
+    // Makes the song play from this video from now on, and answers the song
+    // as getSong does, with the video's length. `length` is the choice's
+    // length in seconds when the list gave one, so the server need not look
+    // it up again.
+    suspend fun setPreview(id: String, videoId: String, length: Int? = null): Song {
+        val params = buildMap {
+            put("id", id)
+            put("videoId", videoId)
+            length?.let { put("length", it.toString()) }
+        }
+        return get("setPreview", params, "song", Song.serializer())
+    }
+
     // What the signed-in user may do to the library's files. Only for
     // servers that list the octoLibraryActions extension.
     suspend fun libraryActions(): LibraryActions =
