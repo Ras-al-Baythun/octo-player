@@ -113,6 +113,11 @@ interface DesktopPlayer : AutoCloseable {
     // Plays a queue entry now.
     fun skipTo(key: Long)
 
+    // Starts the song playing over from its source, as if queued afresh
+    // (a song found online may play from another video now), keeping
+    // whether it plays or is paused.
+    fun restartCurrent()
+
     // Puts songs right after the current one. They are the listener's own
     // unless a `source` says otherwise.
     fun playNext(songs: List<Song>, source: QueueSource = QueueSource.You)

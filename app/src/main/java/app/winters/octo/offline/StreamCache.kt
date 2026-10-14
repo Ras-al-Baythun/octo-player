@@ -83,6 +83,14 @@ class StreamCache @Inject constructor(
         refreshUsed()
     }
 
+    // Lets go of what is saved under these names: a song that plays from
+    // another file now, whose saved copy would be the old one.
+    suspend fun forget(keys: Collection<String>) = withContext(Dispatchers.IO) {
+        if (!_enabled.value || keys.isEmpty()) return@withContext
+        keys.forEach { key -> cache.removeResource(key) }
+        refreshUsed()
+    }
+
     fun refreshUsed() {
         _usedBytes.value = cache.cacheSpace
     }

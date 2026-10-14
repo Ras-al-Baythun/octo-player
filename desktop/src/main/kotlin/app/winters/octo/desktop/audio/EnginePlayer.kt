@@ -308,6 +308,18 @@ class EnginePlayer(
         }
     }
 
+    // The engine's queue made afresh around the current entry, so the
+    // engine opens its source again (and drops whatever it had read ahead
+    // of the next one) rather than skipping within what it holds.
+    override fun restartCurrent() {
+        synchronized(lock) {
+            if (queue.currentEntry == null) return
+            problem = null
+            load(startMs = 0, play = playing)
+            publish()
+        }
+    }
+
     // ---- The queue ----
 
     override fun playNext(songs: List<Song>, source: QueueSource) = changeQueue { queue.playNext(songs.map(lengths::applyTo), source) }

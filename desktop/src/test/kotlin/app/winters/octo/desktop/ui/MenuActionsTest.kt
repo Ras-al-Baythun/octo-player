@@ -147,6 +147,20 @@ class MenuActionsTest {
     }
 
     @Test
+    fun chooseVersionSitsBesideTheDetails_ForOneSongFoundOnline_WhereTheServerOffersIt() {
+        assertEquals(
+            listOf("Song details", "Choose version…", "Find songs"),
+            songMenuActions(1, SongPlace.Library, outside = true, canFind = true, canChoose = true)[2].map { songActionLabel(it, false) },
+        )
+        // In a playlist or the queue too: the song is the same song found online.
+        assertEquals(true, songMenuActions(1, SongPlace.Queue(listOf(1L)), outside = true, canChoose = true).flatten().contains(SongAction.ChooseVersion))
+        // Not for a library song, nor several songs, nor on a server without the choice.
+        assertEquals(false, songMenuActions(1, SongPlace.Library, canChoose = true).flatten().contains(SongAction.ChooseVersion))
+        assertEquals(false, songMenuActions(2, SongPlace.Library, outside = true, canChoose = true).flatten().contains(SongAction.ChooseVersion))
+        assertEquals(false, songMenuActions(1, SongPlace.Library, outside = true).flatten().contains(SongAction.ChooseVersion))
+    }
+
+    @Test
     fun findInFlacNeedsAServerThatCanAndNeverForSongsFoundOnline() {
         // Not offered when the server cannot, or no picked song loses detail.
         assertEquals(false, songMenuActions(1, SongPlace.Library).flatten().contains(SongAction.FindFlac))

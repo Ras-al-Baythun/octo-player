@@ -26,6 +26,7 @@ import app.winters.octo.subsonic.AuthMode
 import app.winters.octo.subsonic.Credentials
 import app.winters.octo.subsonic.MusicFolder
 import app.winters.octo.subsonic.OCTO_PLAYLISTS
+import app.winters.octo.subsonic.OCTO_PREVIEW
 import app.winters.octo.subsonic.ScanStatus
 import app.winters.octo.subsonic.ServerInfo
 import app.winters.octo.subsonic.SubsonicClient
@@ -80,6 +81,10 @@ class Session(
     // Whether the server keeps playlists of its own, which take songs found
     // online (an Octo with octoPlaylists).
     val keepsPlaylists: Boolean get() = "$OCTO_PLAYLISTS:1" in extensions
+
+    // Whether a song found online can play from a video of the listener's
+    // choosing (an Octo with octoPreview).
+    val choosesVersions: Boolean get() = "$OCTO_PREVIEW:1" in extensions
 
     // What the server is called: its name, else its host.
     val name: String get() = serverName(label, client.primaryUrl.toString())

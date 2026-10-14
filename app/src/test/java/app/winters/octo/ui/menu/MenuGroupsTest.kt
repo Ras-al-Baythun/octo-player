@@ -84,6 +84,11 @@ class MenuGroupsTest {
             listOf(listOf(PlayNext, AddToQueue, StartRadio), listOf(AddToPlaylist, Download), listOf(Info)),
             songMenuGroups(songActions(find = true, radio = true, keeps = true)),
         )
+        // Choosing the video it plays from sits with looking into the song.
+        assertEquals(
+            listOf(listOf(PlayNext, AddToQueue), listOf(Download), listOf(SongAction.ChooseVersion, Info)),
+            songMenuGroups(songActions(find = true, radio = false, chooseVersion = true)),
+        )
     }
 
     @Test

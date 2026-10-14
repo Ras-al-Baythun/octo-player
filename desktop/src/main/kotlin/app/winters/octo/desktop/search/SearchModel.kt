@@ -11,6 +11,7 @@ import app.winters.octo.desktop.library.LibraryIndex
 import app.winters.octo.desktop.library.isOutsideSong
 import app.winters.octo.desktop.server.Connection
 import app.winters.octo.desktop.server.userMessage
+import app.winters.octo.playback.RealLengths
 import app.winters.octo.server.Arriving
 import app.winters.octo.server.arriving
 import app.winters.octo.subsonic.Album
@@ -179,6 +180,9 @@ class SearchModel(
     private val scope: CoroutineScope,
     // Whether "Library songs only" is on.
     private val libraryOnly: () -> Boolean = { false },
+    // Where the lengths of songs found online go once the server has
+    // looked them up (the player's, so every row shows them).
+    private val lengths: RealLengths = RealLengths(),
     // Takes the server's own music a search found that the library lacks
     // into the library (LibraryStore.takeIn), answering whether any of it
     // is in now.
@@ -230,13 +234,24 @@ class SearchModel(
                 state = SearchState.Failed(e.userMessage())
                 return@launch
             }
-            state = SearchState.Done(split(sent, query, filter).also { tops.follow(query, it, filter) })
+            var found = split(sent, query, filter).also { tops.follow(query, it, filter) }
+            state = SearchState.Done(found)
             // Music the server took in since the library was read is taken
             // in now; once it is, the same answer is split again, so it
             // lists as the library's everywhere.
-            val index = index() ?: return@launch
-            val arriving = arriving(sent, { index.hasSong(it.id) }, { index.hasAlbum(it.id) }, findsOnline = connection.acquires)
-            if (!arriving.isEmpty && takeIn(arriving)) state = SearchState.Done(split(sent, query, filter))
+            val index = index()
+            if (index != null) {
+                val arriving = arriving(sent, { index.hasSong(it.id) }, { index.hasAlbum(it.id) }, findsOnline = connection.acquires)
+                if (!arriving.isEmpty && takeIn(arriving)) {
+                    found = split(sent, query, filter)
+                    state = SearchState.Done(found)
+                }
+            }
+            // Songs found online listed without a length get one looked up,
+            // a few of them; a new search cancels the asking with the rest.
+            refreshLengths(songsWithoutLength(found.outside.songs, { true }, { lengths.lengthMs(it, 0) > 0 }), connection.client) { id, ms ->
+                lengths.learn(id, 0, ms)
+            }
         }
     }
 

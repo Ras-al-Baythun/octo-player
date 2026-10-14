@@ -228,6 +228,10 @@ class PlaybackConnection @Inject constructor(
 
     fun playLast(trackIds: List<String>) = withController { c -> c.addMediaItems(trackIds.map(::songRequest)) }
 
+    // A song found online plays from another video now, `version`: the
+    // song on, if it is that one, starts over from it.
+    fun reopen(trackId: String, version: String) = withController { c -> c.sendCustomCommand(REOPEN, reopenArgs(trackId, version)) }
+
     // Moves from the "Up next" list, by position in the queue. Taking songs
     // out goes through QueueEditor, by each song's key.
     fun moveInQueue(from: Int, to: Int) = withController { it.moveMediaItem(from, to) }

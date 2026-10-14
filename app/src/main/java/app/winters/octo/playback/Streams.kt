@@ -187,6 +187,13 @@ class Streams @Inject constructor(
         return client.url("stream", mapOf("id" to ref.serverId) + request.params).toString()
     }
 
+    // Lets go of a server song's saved copies, in every size: it plays from
+    // another file now, and the saved one would be the old sound.
+    suspend fun forgetSaved(sourceId: String, serverId: String, mimeType: String?, bitrate: Int?) {
+        val ref = StreamRef(sourceId, serverId, mimeType, bitrate)
+        saved.forget(requestVariants(ref).map { streamCacheKey(sourceId, ref, it) })
+    }
+
     // The name a song is saved under, or null when no server is known for it.
     fun cacheKey(ref: StreamRef): String? {
         val source = ref.sourceId ?: currentSourceId() ?: return null

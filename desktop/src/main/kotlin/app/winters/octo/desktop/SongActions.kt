@@ -1,9 +1,12 @@
 package app.winters.octo.desktop
 
 import app.winters.octo.desktop.library.LibraryIndex
+import app.winters.octo.desktop.library.isOutsideSong
 import app.winters.octo.desktop.library.libraryOnlySongs
 import app.winters.octo.desktop.library.sortAlbums
 import app.winters.octo.desktop.queue.radioName
+import app.winters.octo.desktop.search.refreshLengths
+import app.winters.octo.desktop.search.songsWithoutLength
 import app.winters.octo.desktop.server.userMessage
 import app.winters.octo.playback.QueueSource
 import app.winters.octo.radio.RadioDiscovery
@@ -204,6 +207,18 @@ suspend fun AppState.artistSongs(id: String): List<Song> {
 }
 
 suspend fun AppState.playlistSongs(id: String): List<Song> = connection?.client?.playlist(id)?.entry.orEmpty()
+
+// Songs found online in a list, listed without a length, get one looked
+// up on the server, a few at a time, so their rows fill in while the list
+// is on screen; cancelled with the caller. Lengths already learned are
+// not asked for again.
+suspend fun AppState.refreshOutsideLengths(songs: List<Song>) {
+    val client = connection?.client ?: return
+    val index = library?.index
+    val canFetch = fetches != null
+    val wanted = songsWithoutLength(songs, { isOutsideSong(it, index, canFetch) }, { realLengths[it] != null })
+    refreshLengths(wanted, client) { id, ms -> player.lengths.learn(id, 0, ms) }
+}
 
 // Taking songs away.
 

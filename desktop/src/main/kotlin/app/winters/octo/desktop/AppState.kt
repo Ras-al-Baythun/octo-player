@@ -48,6 +48,8 @@ import kotlinx.coroutines.flow.stateIn
 import app.winters.octo.desktop.search.Fetches
 import app.winters.octo.desktop.upgrade.UpgradeModel
 import app.winters.octo.desktop.downloads.DownloadsModel
+import app.winters.octo.desktop.preview.PreviewModel
+import app.winters.octo.desktop.preview.playsFromNotice
 import kotlinx.coroutines.delay
 import app.winters.octo.desktop.search.OmniboxState
 import app.winters.octo.desktop.search.SearchModel
@@ -76,6 +78,8 @@ import app.winters.octo.server.switchNotice
 import app.winters.octo.sort.SortList
 import app.winters.octo.sort.SortOrder
 import app.winters.octo.subsonic.FORM_POST_EXTENSION
+import app.winters.octo.subsonic.OCTO_PREVIEW
+import app.winters.octo.subsonic.PreviewChoice
 import app.winters.octo.subsonic.Playlist
 import app.winters.octo.subsonic.Song
 import app.winters.octo.subsonic.SubsonicException
@@ -180,6 +184,11 @@ class AppState(
 
     // The downloads drawer on an Octo server; null on any other.
     var downloads by mutableStateOf<DownloadsModel?>(null)
+        private set
+
+    // "Choose version" for songs found online, on an Octo server that
+    // offers the choice; null on any other.
+    var previews by mutableStateOf<PreviewModel?>(null)
         private set
     var search by mutableStateOf<SearchModel?>(null)
         private set
@@ -403,6 +412,7 @@ class AppState(
         val views = viewsOf(connection)
         val old = upgrades
         val oldDownloads = downloads
+        val oldPreviews = previews
         together {
             show(connection, views)
             notice = note
@@ -418,6 +428,7 @@ class AppState(
         }
         old?.close()
         oldDownloads?.close()
+        oldPreviews?.close()
         startReading(views)
         startListening(connection)
     }
@@ -427,9 +438,11 @@ class AppState(
         val views = viewsOf(connection)
         val old = upgrades
         val oldDownloads = downloads
+        val oldPreviews = previews
         together { show(connection, views) }
         old?.close()
         oldDownloads?.close()
+        oldPreviews?.close()
         startReading(views)
     }
 
@@ -442,6 +455,7 @@ class AppState(
         val home: HomeStore,
         val upgrades: UpgradeModel?,
         val downloads: DownloadsModel?,
+        val previews: PreviewModel?,
     )
 
     private fun viewsOf(connection: Connection): ServerViews {
@@ -449,7 +463,7 @@ class AppState(
         return ServerViews(
             store,
             if (connection.acquires) Fetches(connection.client, scope, onArrived = { store.load() }, onAsked = { downloads?.wake() }) else null,
-            SearchModel(connection, { store.index }, { playlists }, scope, { settings.current.libraryOnly }, store::takeIn),
+            SearchModel(connection, { store.index }, { playlists }, scope, { settings.current.libraryOnly }, player.lengths, store::takeIn),
             HomeStore(connection, scope, kept = keptShelves, sections = { homeSectionOrder(settings.current.appearance.homeSections) }),
             // Any Octo server: whether it can look for FLACs is asked live,
             // since the extensions saved at sign-in may be older than it.
@@ -465,7 +479,21 @@ class AppState(
             },
             // The same for the downloads drawer.
             if (connection.isOcto) DownloadsModel(connection.client, scope, ended = { replaceEnded(it) }) else null,
+            // Choosing the video a song found online plays from, where the
+            // server lists the extension.
+            if (connection.supports(OCTO_PREVIEW)) PreviewModel(connection.client, scope, chosen = ::versionChosen, notify = { notice = it }) else null,
         )
+    }
+
+    // The server took a pick: the song is as long as the video now, for
+    // every row that shows it, and when it is the song playing it starts
+    // over from the new video. The server answers the length as a listing
+    // does; it is taken whatever it is, since nothing was known before.
+    private fun versionChosen(song: Song, choice: PreviewChoice, answered: Song) {
+        val ms = answered.duration * 1_000L
+        if (ms > 0) player.lengths.learn(song.id, 0, ms)
+        if (player.state.value.current?.song?.id == song.id) player.restartCurrent()
+        passingNotice(playsFromNotice(choice))
     }
 
     // Songs the server took on for a higher quality copy: said in passing,
@@ -519,6 +547,7 @@ class AppState(
         fetches = views.fetches
         upgrades = views.upgrades
         downloads = views.downloads
+        previews = views.previews
         search = views.search
         home = views.home
         health.forget()
@@ -600,6 +629,7 @@ class AppState(
         val form = SignInForm(accounts.last)
         upgrades?.close()
         downloads?.close()
+        previews?.close()
         together {
             signInForm = form
             connection = null
@@ -607,6 +637,7 @@ class AppState(
             fetches = null
             upgrades = null
             downloads = null
+            previews = null
             search = null
             home = null
             health.forget()

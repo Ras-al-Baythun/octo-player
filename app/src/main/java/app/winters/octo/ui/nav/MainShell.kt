@@ -342,6 +342,7 @@ fun MainShell(library: DeviceLibrary, playback: PlaybackConnection, feedback: Fe
                 ShareSheetHost(shareSheet)
                 FamilyRequestSheetHost()
                 app.winters.octo.ui.downloads.ServerDownloadsHost()
+                app.winters.octo.ui.preview.ChooseVersionHost()
                 // Above the sheets, so an undo stays reachable while one is open.
                 FeedbackHost(feedback)
             }

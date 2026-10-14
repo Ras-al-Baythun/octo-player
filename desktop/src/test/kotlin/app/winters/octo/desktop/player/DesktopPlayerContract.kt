@@ -95,6 +95,24 @@ abstract class DesktopPlayerContract {
     }
 
     @Test
+    fun startingTheSongOverKeepsWhetherItPlays() {
+        val p = newPlayer()
+        p.play(songs, 1)
+        elapse(p, 5_000)
+        p.restartCurrent()
+        assertEquals("s2", p.now())
+        assertTrue(p.state.value.playing)
+        assertNear(0, p.positionMs())
+        assertEquals(listOf("s3", "s4", "s5"), p.coming())
+        elapse(p, 2_000)
+        p.pause()
+        p.restartCurrent()
+        assertEquals("s2", p.now())
+        assertFalse(p.state.value.playing)
+        assertNear(0, p.positionMs())
+    }
+
+    @Test
     fun nextKeepsAPausedPlayerPaused() {
         val p = newPlayer()
         p.play(songs)

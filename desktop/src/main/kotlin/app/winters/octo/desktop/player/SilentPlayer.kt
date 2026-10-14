@@ -182,6 +182,14 @@ class SilentPlayer(
         }
     }
 
+    // No source to open again: the song starts over, as it is.
+    override fun restartCurrent() {
+        synchronized(lock) {
+            if (queue.currentEntry == null) return
+            restartAt(0, play = running)
+        }
+    }
+
     override fun playNext(songs: List<Song>, source: QueueSource) = putIn { queue.playNext(songs, source) }
 
     override fun addToQueue(songs: List<Song>, source: QueueSource) = putIn { queue.add(songs, source) }

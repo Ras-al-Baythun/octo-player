@@ -47,6 +47,7 @@ import app.winters.octo.desktop.ui.FilterBar
 import app.winters.octo.desktop.ui.Load
 import app.winters.octo.desktop.ui.Loaded
 import app.winters.octo.desktop.ui.NoMatches
+import app.winters.octo.desktop.refreshOutsideLengths
 import app.winters.octo.desktop.ui.PageSide
 import app.winters.octo.desktop.ui.PlaylistMenu
 import app.winters.octo.desktop.ui.RowDrop
@@ -81,6 +82,9 @@ fun PlaylistPage(app: AppState, visit: Visit, id: String) {
         if (!app.navigator.back()) app.navigator.replace(Page.Home)
     }
     val view = app.playlistView(id)
+    // Songs found online listed without a length get one looked up, a few
+    // of them, while the page is open.
+    LaunchedEffect(view) { if (view != null) app.refreshOutsideLengths(view.entry) }
     val state = when {
         view != null -> Load.Ready(view)
         failed != null -> Load.Failed(failed.orEmpty())

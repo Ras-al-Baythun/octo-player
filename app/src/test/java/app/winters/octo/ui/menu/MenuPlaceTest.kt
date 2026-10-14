@@ -81,6 +81,11 @@ class MenuPlaceTest {
             listOf(PlayNext, AddToQueue, AddToPlaylist, Download, RemoveFromPlaylist, Info),
             songActions(find = true, radio = false, place = here, keeps = true),
         )
+        // Choosing its video comes after what the row can do on the page.
+        assertEquals(
+            listOf(PlayNext, AddToQueue, Download, RemoveFromPlaylist, SongAction.ChooseVersion, Info),
+            songActions(find = true, radio = false, place = here, chooseVersion = true),
+        )
         // Without the row there is nothing to take out.
         assertFalse(place(SongMenuContext(playlistId = "p")).inPlaylist)
     }

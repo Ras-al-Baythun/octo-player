@@ -6,6 +6,7 @@ import app.winters.octo.ui.family.SAVED
 import app.winters.octo.ui.downloads.FIND_SONGS
 import app.winters.octo.health.DELETE_FROM_DISK
 import app.winters.octo.ui.upgrade.FIND_HIGHER_QUALITY
+import app.winters.octo.desktop.preview.CHOOSE_VERSION
 
 // What each menu offers, and in which groups, worked out apart from how the
 // rows are drawn so the choices can be checked without a window. Every menu
@@ -30,7 +31,7 @@ enum class SongAction {
     Play, PlayNext, AddToQueue, StartRadio,
     AddToLibrary, RequestCopy, AddToLastPlaylist, AddToPlaylist, Favourite, Rate, KeepOffline, FindFlac,
     GoToAlbum, GoToArtist, ShowInFolder,
-    Details, FindSongs,
+    Details, ChooseVersion, FindSongs,
     Move,
     RemoveFromPlaylist, RemoveFromQueue,
     RemoveFromMyLibrary, DeleteFromDisk,
@@ -51,7 +52,9 @@ enum class SongAction {
 // picked library song of a kind that loses detail (`canUpgrade`); a song
 // found online has no file to replace. Find songs, which runs one song's
 // search again on the server's download sources to pick the copy, needs an
-// Octo server that keeps a log of its downloads (`canFind`). Delete from
+// Octo server that keeps a log of its downloads (`canFind`). Choose
+// version, which picks the video one song found online plays from, needs
+// an Octo server that offers the choice (`canChoose`). Delete from
 // disk needs an Octo server that lets this user (an admin) take files off
 // its disk (`canDelete`), and is last of all, asked first. In a family, a
 // member who asks for copies gets Request a copy beside the add, for one
@@ -72,6 +75,7 @@ fun songMenuActions(
     canRemoveFromMine: Boolean = false,
     // Library songs can be kept on this computer to play offline.
     canKeep: Boolean = false,
+    canChoose: Boolean = false,
 ): List<List<SongAction>> {
     val one = count == 1
     val editable = place is SongPlace.Playlist && ownsPlaylist && place.positions.isNotEmpty()
@@ -92,7 +96,11 @@ fun songMenuActions(
             SongAction.FindFlac.takeIf { canUpgrade && !outside },
         ),
         if (one && !outside) listOfNotNull(SongAction.GoToAlbum, SongAction.GoToArtist, SongAction.ShowInFolder.takeIf { inFolder }) else emptyList(),
-        listOfNotNull(SongAction.Details.takeIf { one }, SongAction.FindSongs.takeIf { one && canFind }),
+        listOfNotNull(
+            SongAction.Details.takeIf { one },
+            SongAction.ChooseVersion.takeIf { one && outside && canChoose },
+            SongAction.FindSongs.takeIf { one && canFind },
+        ),
         listOfNotNull(SongAction.Move.takeIf { editable }),
         listOfNotNull(
             SongAction.RemoveFromPlaylist.takeIf { editable },
@@ -129,6 +137,7 @@ fun songActionLabel(action: SongAction, starred: Boolean, last: String? = null, 
     SongAction.GoToArtist -> "Go to artist"
     SongAction.ShowInFolder -> "Show in folder"
     SongAction.Details -> "Song details"
+    SongAction.ChooseVersion -> CHOOSE_VERSION
     SongAction.FindSongs -> FIND_SONGS
     SongAction.Move -> "Move"
     SongAction.RemoveFromPlaylist -> "Remove from this playlist"

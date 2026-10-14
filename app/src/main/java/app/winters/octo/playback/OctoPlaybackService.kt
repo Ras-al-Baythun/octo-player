@@ -2,6 +2,7 @@ package app.winters.octo.playback
 
 import android.app.PendingIntent
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.util.Log
 import androidx.annotation.OptIn
@@ -87,6 +88,17 @@ internal val PLAY_NEXT = SessionCommand("app.winters.octo.PLAY_NEXT", Bundle.EMP
 private const val ARG_IDS = "ids"
 
 internal fun playNextArgs(trackIds: List<String>) = Bundle().apply { putStringArrayList(ARG_IDS, ArrayList(trackIds)) }
+
+// A song found online plays from another video now (Choose version): the
+// song on now, if it is that one, starts over from the new video.
+internal val REOPEN = SessionCommand("app.winters.octo.REOPEN", Bundle.EMPTY)
+private const val ARG_ID = "id"
+private const val ARG_VERSION = "version"
+
+internal fun reopenArgs(trackId: String, version: String) = Bundle().apply {
+    putString(ARG_ID, trackId)
+    putString(ARG_VERSION, version)
+}
 
 // Apps that drive playback from a car or by voice: Android Auto and the
 // assistant. They get full control even when not system apps.
@@ -369,6 +381,30 @@ class OctoPlaybackService : MediaLibraryService() {
         }
     }
 
+    // The song on now plays from another video since the listener chose
+    // one (Choose version): it starts over from the new video, with the
+    // new length. Its address gets the video's id on the end: Media3 only
+    // swaps an item's words when its address stays the same, and would go
+    // on playing the old sound. The server ignores the extra. Only the
+    // song on now: the rest of the queue reads the song anew when it comes.
+    private suspend fun reopen(id: String, version: String) {
+        if (!player.isCommandAvailable(Player.COMMAND_CHANGE_MEDIA_ITEMS)) return
+        val fresh = playable.items(listOf(id)).firstOrNull() ?: return
+        val uri = fresh.localConfiguration?.uri?.toString() ?: return
+        val index = player.currentMediaItemIndex
+        val old = player.currentMediaItem?.takeIf { it.mediaId == id } ?: return
+        // What the queue wrote on the old item (its list, its entry) stays.
+        val extras = Bundle(old.mediaMetadata.extras ?: Bundle.EMPTY).apply { putAll(fresh.mediaMetadata.extras ?: Bundle.EMPTY) }
+        val item = fresh.buildUpon()
+            .setUri(uri + (if ('?' in uri) "&" else "?") + "v=" + Uri.encode(version))
+            .setMediaMetadata(fresh.mediaMetadata.buildUpon().setExtras(extras).build())
+            .build()
+        player.replaceMediaItem(index, item)
+        player.seekTo(index, 0)
+        if (player.playbackState == Player.STATE_IDLE) player.prepare()
+        player.play()
+    }
+
     // Asks the server to download the song found online that is on now.
     private fun downloadCurrent() {
         val id = currentId.value?.takeIf(::isFind) ?: return
@@ -561,7 +597,7 @@ class OctoPlaybackService : MediaLibraryService() {
                 ConnectionResult.AcceptedResultBuilder(session, controller)
                     .setAvailableSessionCommands(
                         ConnectionResult.DEFAULT_SESSION_AND_LIBRARY_COMMANDS.buildUpon()
-                            .add(LIKE).add(DOWNLOAD).add(CLOSE).add(PLAY_NEXT)
+                            .add(LIKE).add(DOWNLOAD).add(CLOSE).add(PLAY_NEXT).add(REOPEN)
                             .build(),
                     )
                     .build()
@@ -581,6 +617,7 @@ class OctoPlaybackService : MediaLibraryService() {
                 PLAY_NEXT -> args.getStringArrayList(ARG_IDS)?.let { ids ->
                     scope.launch { player.addNext(playable.items(ids).map { it.withSource(QueueSource.You) }) }
                 }
+                REOPEN -> args.getString(ARG_ID)?.let { id -> scope.launch { reopen(id, args.getString(ARG_VERSION).orEmpty()) } }
                 else -> return super.onCustomCommand(session, controller, customCommand, args)
             }
             return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))

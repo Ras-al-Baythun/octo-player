@@ -144,6 +144,7 @@ fun ColumnScope.SongMenu(
                 canDelete = canDeleteFromDisk(app, songs),
                 canRequest = family.offersRequest,
                 canKeep = true,
+                canChoose = app.previews != null,
                 canRemoveFromMine = offersRemoveFromMyLibrary(me) &&
                     songs.all { offersRemoveOn(it.octoPersonal, index?.marksPersonal == true) },
             ).forEachIndexed { index, group ->
@@ -196,6 +197,7 @@ fun ColumnScope.SongMenu(
                         SongAction.GoToArtist -> MenuRow(label, { one?.artistId?.let { app.navigator.go(Page.Artist(it, one.artist.orEmpty())) }; close() }, OctoIcons.Artist, enabled = !one?.artistId.isNullOrEmpty())
                         SongAction.ShowInFolder -> MenuRow(label, { one?.parent?.let { app.navigator.go(Page.Folder(it, "", focus = one.id)) }; close() }, OctoIcons.Folder)
                         SongAction.Details -> MenuRow(label, { app.showInfo(one); close() }, OctoIcons.Info)
+                        SongAction.ChooseVersion -> MenuRow(label, { close(); one?.let(app::chooseVersion) }, OctoIcons.Playback, more = true)
                         SongAction.FindSongs -> MenuRow(label, { one?.let(app::findSongs); close() }, OctoIcons.Search)
                         SongAction.Move -> MenuRow(label, { page = MenuPage.Move }, OctoIcons.Sort, more = true)
                         SongAction.RemoveFromPlaylist -> MenuRow(label, {

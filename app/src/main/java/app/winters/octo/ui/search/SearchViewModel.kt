@@ -16,6 +16,7 @@ import app.winters.octo.discovery.AddHint
 import app.winters.octo.discovery.Discovered
 import app.winters.octo.discovery.Discovery
 import app.winters.octo.discovery.Downloads
+import app.winters.octo.discovery.FindLengths
 import app.winters.octo.discovery.OnlineArtist
 import app.winters.octo.discovery.RankedTracks
 import app.winters.octo.discovery.SearchTopSongs
@@ -29,6 +30,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -118,6 +120,7 @@ class SearchViewModel @Inject constructor(
     private val downloads: Downloads,
     private val hint: AddHint,
     private val tops: SearchTopSongs,
+    private val lengths: FindLengths,
 ) : ViewModel() {
     var text by mutableStateOf("")
     var filter by mutableStateOf(SearchFilter.All)
@@ -205,14 +208,19 @@ class SearchViewModel @Inject constructor(
                 // show among the library's once they are taken in, a moment
                 // after the rest.
                 val found = (state as? LoadState.Ready)?.data ?: return@transformLatest
-                val tookIn = try {
-                    discovery.takeIn(found)
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (e: Exception) {
-                    false
+                coroutineScope {
+                    // Finds listed without a length are asked for theirs
+                    // meanwhile; a new search lets the asking go.
+                    launch { lengths.refresh(found.songs) }
+                    val tookIn = try {
+                        discovery.takeIn(found)
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        false
+                    }
+                    if (tookIn) rounds.update { it + 1 }
                 }
-                if (tookIn) rounds.update { it + 1 }
             }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), DiscoverState.Idle)
 

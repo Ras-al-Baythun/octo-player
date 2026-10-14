@@ -33,6 +33,7 @@ import app.winters.octo.catalog.PlaylistTrack
 import app.winters.octo.catalog.UserDao
 import app.winters.octo.catalog.isFind
 import app.winters.octo.catalog.mosaicCovers
+import app.winters.octo.discovery.FindLengths
 import app.winters.octo.design.OctoColors
 import app.winters.octo.design.elevation3
 import app.winters.octo.playback.PlaybackConnection
@@ -56,7 +57,9 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
 
@@ -77,11 +80,18 @@ class PlaylistViewModel @AssistedInject constructor(
     private val playback: PlaybackConnection,
     private val feedback: Feedback,
     sync: PlaylistSync,
+    lengths: FindLengths,
 ) : ViewModel() {
     // Null until first read.
     val page: StateFlow<PlaylistPage?> =
         combine(userDao.playlist(id), userDao.playlistTracks(id), ::PlaylistPage)
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    init {
+        // Songs found online listed without a length are asked for theirs
+        // once, as the page opens.
+        viewModelScope.launch { lengths.refresh(userDao.playlistTracks(id).first().map { it.track }) }
+    }
 
     // How many of its songs the server's copy goes without, being only on the phone.
     val phoneOnly: StateFlow<Int> =

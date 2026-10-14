@@ -13,6 +13,7 @@ import app.winters.octo.catalog.TrackEntity
 import app.winters.octo.catalog.UserDao
 import app.winters.octo.catalog.isFind
 import app.winters.octo.data.LibraryFiles
+import app.winters.octo.data.PreviewChoices
 import app.winters.octo.data.Upgrades
 import app.winters.octo.design.PopupPages
 import app.winters.octo.discovery.DownloadState
@@ -118,7 +119,7 @@ val LocalSongMenu = staticCompositionLocalOf<SongMenuState> { error("No song men
 // The choices in a song's menu, in the order shown.
 enum class SongAction {
     PlayNext, AddToQueue, StartRadio, Download, RequestCopy, AddToLastPlaylist, AddToPlaylist, RemoveFromPlaylist, Select, KeepOffline, FindFlac, ShareFile, Share, Like,
-    Rate, GoToAlbum, GoToArtist, SetAsSound, DeleteFromPhone, RemoveFromMyLibrary, DeleteFromDisk, Info, FindSongs, Cast, Sound,
+    Rate, GoToAlbum, GoToArtist, SetAsSound, DeleteFromPhone, RemoveFromMyLibrary, DeleteFromDisk, ChooseVersion, Info, FindSongs, Cast, Sound,
 }
 
 // Where the menu was opened, as the choices care about it.
@@ -159,9 +160,11 @@ fun menuPlace(context: SongMenuContext, albumId: String, artistId: String): Menu
 // `disk` is whether that server lets this user delete its copy from disk.
 // In a family, a member who asks for copies gets Request a copy beside the
 // add for a song found online (`requestCopy`), and a managed member can take
-// a library song out of their own library (`removeFromMine`). In the full
-// player the menu ends with where the music plays (Cast) and the Sound page,
-// for a found song as much as a library one.
+// a library song out of their own library (`removeFromMine`). A found song
+// on a server that lets the listener pick which video it plays from gets
+// Choose version (`chooseVersion`). In the full player the menu ends with
+// where the music plays (Cast) and the Sound page, for a found song as much
+// as a library one.
 fun songActions(
     find: Boolean,
     radio: Boolean,
@@ -176,6 +179,7 @@ fun songActions(
     requestCopy: Boolean = false,
     removeFromMine: Boolean = false,
     keeps: Boolean = false,
+    chooseVersion: Boolean = false,
 ): List<SongAction> = buildList {
     add(SongAction.PlayNext)
     add(SongAction.AddToQueue)
@@ -187,6 +191,7 @@ fun songActions(
         if (requestCopy) add(SongAction.RequestCopy)
         if (place.inPlaylist) add(SongAction.RemoveFromPlaylist)
         if (place.selectable) add(SongAction.Select)
+        if (chooseVersion) add(SongAction.ChooseVersion)
     } else {
         if (lastPlaylist) add(SongAction.AddToLastPlaylist)
         add(SongAction.AddToPlaylist)
@@ -223,7 +228,7 @@ private val SongMenuOrder = listOf(
     listOf(SongAction.PlayNext, SongAction.AddToQueue, SongAction.StartRadio),
     listOf(SongAction.AddToLastPlaylist, SongAction.AddToPlaylist, SongAction.Like, SongAction.Rate, SongAction.Download, SongAction.RequestCopy, SongAction.KeepOffline, SongAction.FindFlac),
     listOf(SongAction.GoToAlbum, SongAction.GoToArtist),
-    listOf(SongAction.Share, SongAction.ShareFile, SongAction.SetAsSound, SongAction.Info, SongAction.FindSongs, SongAction.Select),
+    listOf(SongAction.Share, SongAction.ShareFile, SongAction.SetAsSound, SongAction.ChooseVersion, SongAction.Info, SongAction.FindSongs, SongAction.Select),
     listOf(SongAction.RemoveFromPlaylist, SongAction.DeleteFromPhone, SongAction.RemoveFromMyLibrary, SongAction.DeleteFromDisk),
     listOf(SongAction.Cast, SongAction.Sound),
 )
@@ -282,6 +287,7 @@ class SongMenuViewModel @Inject constructor(
     private val feedback: Feedback,
     private val upgrades: Upgrades,
     private val serverDownloads: app.winters.octo.data.ServerDownloads,
+    private val previews: PreviewChoices,
     private val files: LibraryFiles,
     // What adding a song found online does in a family, and its requests.
     val family: FamilyHub,
@@ -311,6 +317,14 @@ class SongMenuViewModel @Inject constructor(
     // found online can go in one.
     val keepsPlaylists: StateFlow<Boolean> = playlists.keepsFinds
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    // Whether the signed-in server lets a song found online play from a
+    // video of the listener's choosing (Choose version).
+    val choosesVersions: StateFlow<Boolean> = previews.supported
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    // Opens the videos a found song could play from.
+    fun chooseVersion(trackId: String) = previews.open(trackId)
 
     // Whether the signed-in Octo server can look for FLACs.
     val canUpgrade: StateFlow<Boolean> = upgrades.canUpgrade

@@ -98,6 +98,56 @@ class FindLengthsTest {
         assertEquals(emptyMap<String, Long>(), lengths.learned.value)
     }
 
+    private fun track(id: String, ms: Long) = find(id, ms).asTrack()
+
+    // A list's finds without a length are asked of the server, the first
+    // few only, and take what it answers; one it cannot answer for, or that
+    // fails, is left as it is. A library song and a find with a length are
+    // not asked about.
+    @Test
+    fun findsWithoutALengthAreAskedOfTheServer() = runBlocking {
+        val storage = Lengths("find:a" to 0L, "find:b" to 0L, "find:c" to 0L, "find:d" to 200_000L)
+        val asked = mutableListOf<String>()
+        val lengths = FindLengths(storage::store, RealLengths()) { serverId ->
+            asked += serverId
+            when (serverId) {
+                "a" -> 215_000L
+                "b" -> null
+                "c" -> throw IllegalStateException("down")
+                else -> 999_000L
+            }
+        }
+        val songs = listOf(track("find:a", 0), track("find:b", 0), track("find:c", 0), track("find:d", 200_000)) +
+            listOf(find("t-1", 0).asTrack().copy(id = "t-1")) + (1..20).map { track("find:x$it", 0) }
+        lengths.refresh(songs)
+        assertEquals(10, asked.size)
+        assertEquals(listOf("a", "b", "c"), asked.take(3))
+        assertEquals(215_000L, storage.rows["find:a"])
+        assertEquals(0L, storage.rows["find:b"])
+        assertEquals(0L, storage.rows["find:c"])
+        assertEquals(200_000L, storage.rows["find:d"])
+        assertEquals(215_000L, lengths.learned.value["find:a"])
+        // Asked again, a find already answered for is not asked twice.
+        asked.clear()
+        lengths.refresh(listOf(track("find:a", 0)))
+        assertEquals(emptyList<String>(), asked)
+    }
+
+    // A length the server answers for a pick (Choose version) replaces
+    // whatever the find was listed at, so rows show the new video's.
+    @Test
+    fun aLengthTakenFromTheServerReplacesTheListing() = runBlocking {
+        val storage = Lengths("find:a" to 200_000L)
+        val real = RealLengths()
+        val lengths = FindLengths(storage::store, real)
+        lengths.take("find:a", 301_000)
+        assertEquals(301_000L, storage.rows["find:a"])
+        assertEquals(301_000L, real.lengthMs("find:a", 200_000))
+        // Never a library song's.
+        lengths.take("t-1", 301_000)
+        assertEquals(1, storage.asked)
+    }
+
     // A library song's wrong listing is corrected on screen only (the next
     // library read would undo a stored one); repeats store nothing again.
     @Test

@@ -61,6 +61,7 @@ import app.winters.octo.ui.output.OutputList
 import app.winters.octo.ui.output.OutputsViewModel
 import app.winters.octo.ui.playlist.PlaylistPickerPage
 import app.winters.octo.ui.playlist.PlaylistSheetsViewModel
+import app.winters.octo.ui.preview.CHOOSE_VERSION
 import app.winters.octo.ui.server.ShareLinkPage
 import app.winters.octo.ui.server.ShareRequest
 import app.winters.octo.ui.upgrade.FIND_HIGHER_QUALITY
@@ -159,6 +160,7 @@ private fun SongActionsPage(
     val canUpgrade by vm.canUpgrade.collectAsStateWithLifecycle()
     val canFindSongs by vm.canFindSongs.collectAsStateWithLifecycle()
     val keepsPlaylists by vm.keepsPlaylists.collectAsStateWithLifecycle()
+    val choosesVersions by vm.choosesVersions.collectAsStateWithLifecycle()
     val upgradable by produceState(emptyList<UpgradeAsk>(), trackId, canUpgrade) { value = if (canUpgrade) vm.upgradable(trackId) else emptyList() }
     val canRemove by vm.canRemove.collectAsStateWithLifecycle()
     val onDisk by produceState(false, trackId, canRemove) { value = canRemove && vm.deletable(trackId) }
@@ -183,6 +185,7 @@ private fun SongActionsPage(
         requestCopy = vm.family.outside.offersRequest,
         removeFromMine = inMine,
         keeps = keepsPlaylists,
+        chooseVersion = choosesVersions,
     )
     // A family member whose songs are saved rather than added.
     val saves = vm.family.outside.addLabel != null
@@ -304,6 +307,10 @@ private fun SongActionsPage(
                 })
                 SongAction.DeleteFromDisk -> GlassMenuAction(OctoIcons.Delete, DELETE_FROM_DISK, destructive = true, opensPage = true, onClick = {
                     state.pages.open(SongPage.DeleteFromDisk)
+                })
+                SongAction.ChooseVersion -> GlassMenuAction(OctoIcons.Sync, CHOOSE_VERSION, onClick = {
+                    state.close()
+                    vm.chooseVersion(trackId)
                 })
                 SongAction.Info -> GlassMenuAction(OctoIcons.Info, "Song info", opensPage = true, onClick = { state.pages.open(SongPage.Info) })
                 SongAction.FindSongs -> GlassMenuAction(OctoIcons.Search, app.winters.octo.ui.downloads.FIND_SONGS, onClick = {

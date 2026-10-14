@@ -229,6 +229,21 @@ class SongActionsTest {
         assertEquals(false, SongAction.RequestCopy in songActions(find = false, radio = false, requestCopy = true))
     }
 
+    // On a server that lets the listener pick the video a found song plays
+    // from, Choose version comes before the song's info; never on a library
+    // song, which plays from its file.
+    @Test
+    fun aFoundSongOffersChooseVersionWhenTheServerLetsIt() {
+        assertEquals(listOf(PlayNext, AddToQueue, Download, SongAction.ChooseVersion, Info), songActions(find = true, radio = false, chooseVersion = true))
+        assertEquals(
+            listOf(PlayNext, AddToQueue, Download, SongAction.ChooseVersion, Info, FindSongs),
+            songActions(find = true, radio = false, chooseVersion = true, findSongs = true),
+        )
+        assertEquals(listOf(SongAction.ChooseVersion, Info, FindSongs), songMenuGroups(songActions(find = true, radio = false, chooseVersion = true, findSongs = true))[2])
+        assertEquals(listOf(PlayNext, AddToQueue, Download, Info), songActions(find = true, radio = false, chooseVersion = false))
+        assertEquals(false, SongAction.ChooseVersion in songActions(find = false, radio = false, chooseVersion = true))
+    }
+
     @Test
     fun aManagedMemberCanTakeALibrarySongOutOfTheirOwnLibrary() {
         val groups = songMenuGroups(songActions(find = false, radio = false, removeFromMine = true, disk = true))
