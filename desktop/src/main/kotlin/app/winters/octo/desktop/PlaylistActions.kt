@@ -2,21 +2,29 @@ package app.winters.octo.desktop
 
 import app.winters.octo.desktop.nav.Page
 import app.winters.octo.desktop.playlists.PlaylistMove
+import app.winters.octo.desktop.playlists.bestFind
 import app.winters.octo.desktop.playlists.importPlaylist
+import app.winters.octo.desktop.playlists.lookedFor
 import app.winters.octo.desktop.playlists.m3uLinesOf
 import app.winters.octo.desktop.playlists.missedDetail
 import app.winters.octo.desktop.playlists.movedBy
+import app.winters.octo.desktop.playlists.withFinds
+import app.winters.octo.desktop.playlists.withFound
 import app.winters.octo.desktop.server.userMessage
 import app.winters.octo.desktop.system.JumpKind
 import app.winters.octo.desktop.system.JumpTarget
+import app.winters.octo.playlists.M3uEntry
+import app.winters.octo.playlists.M3uMatch
 import app.winters.octo.playlists.PLAYLIST_FILE_LIMIT
 import app.winters.octo.playlists.playlistText
 import app.winters.octo.playlists.writeM3u
+import app.winters.octo.subsonic.OCTO_PLAYLISTS
 import app.winters.octo.subsonic.Playlist
 import app.winters.octo.subsonic.PlaylistWithSongs
 import app.winters.octo.subsonic.Song
 import app.winters.octo.subsonic.SubsonicClient
 import app.winters.octo.subsonic.SubsonicException
+import app.winters.octo.subsonic.refusesOutsideSong
 import app.winters.octo.ui.playlist.AddPlan
 import app.winters.octo.ui.playlist.addAgainQuestion
 import app.winters.octo.ui.playlist.addedMessage
@@ -260,7 +268,9 @@ fun AppState.addToPlaylistChecked(playlist: Playlist, songs: List<Song>, ask: (A
 }
 
 // Puts songs on the end of a playlist as they are, with one quiet line
-// saying so, and remembers the playlist for "Add to last playlist".
+// saying so, and remembers the playlist for "Add to last playlist". A
+// playlist of Navidrome's cannot hold a song found online: on an Octo
+// server that keeps playlists, it is made over as one of Octo's.
 fun AppState.addSongsToPlaylist(playlist: Playlist, songs: List<Song>) {
     val client = connection?.client ?: return
     if (songs.isEmpty()) return
@@ -272,9 +282,57 @@ fun AppState.addSongsToPlaylist(playlist: Playlist, songs: List<Song>) {
             notice = addedMessage(playlist.name, songs.size)
             refreshPlaylists()
         } catch (e: SubsonicException) {
-            notice = "Couldn't add to the playlist: ${e.userMessage()}"
+            if (e.refusesOutsideSong() && keepsPlaylists) makeOverAsOcto(playlist, songs) else notice = "Couldn't add to the playlist: ${e.userMessage()}"
         }
     }
+}
+
+// Whether the server keeps playlists of its own, which take songs found
+// online (the octoPlaylists extension).
+val AppState.keepsPlaylists: Boolean get() = connection?.supports(OCTO_PLAYLISTS) == true
+
+// Makes a playlist of Navidrome's over as one Octo keeps, so it can hold
+// songs found online: a new playlist with its songs and these, the old one
+// deleted, and the page moved on when it was open. Should the old one not
+// go, both stay rather than any song be lost.
+suspend fun AppState.makeOverAsOcto(playlist: Playlist, songs: List<Song>) {
+    val client = connection?.client ?: return
+    try {
+        val onIt = client.playlist(playlist.id).entry.map { it.id }
+        val made = client.createPlaylist(playlist.name, onIt + songs.map { it.id }, formPost, octo = true)
+        val id = made?.id ?: throw SubsonicException.Server(0, "The server did not say the new playlist's id")
+        try {
+            client.deletePlaylist(playlist.id)
+        } catch (_: SubsonicException) {
+        }
+        usedPlaylist(id)
+        notice = addedMessage(playlist.name, songs.size) + ". It's an Octo playlist now, so it can hold songs you don't have yet."
+        refreshPlaylists()
+        if ((navigator.current.page as? Page.Playlist)?.id == playlist.id) navigator.go(Page.Playlist(id))
+    } catch (e: SubsonicException) {
+        notice = "Couldn't add to the playlist: ${e.userMessage()}"
+    }
+}
+
+// How many lines of a playlist file are looked for online, at most.
+private const val ONLINE_LOOKUPS = 200
+
+// The songs found online for the lines of a playlist file the library
+// missed: each one's artist and title searched on the server, the best
+// match taken. Stops at the first server error, with what it has.
+private suspend fun AppState.findOnline(entries: List<M3uEntry>, match: M3uMatch): Map<M3uEntry, Song> {
+    val client = connection?.client ?: return emptyMap()
+    val found = LinkedHashMap<M3uEntry, Song>()
+    for (entry in match.missed.take(ONLINE_LOOKUPS)) {
+        val (artist, title) = entry.lookedFor() ?: continue
+        val songs = try {
+            client.search("$artist $title".trim(), artists = 0, albums = 0, songs = 8).song
+        } catch (e: SubsonicException) {
+            break
+        }
+        bestFind(songs, artist, title)?.let { found[entry] = it }
+    }
+    return found
 }
 
 // A new playlist with these songs in it, which says where they went, as
@@ -326,17 +384,22 @@ fun AppState.importPlaylistFile(file: File) {
             notice = "That file couldn't be read."
             return@launch
         }
-        val found = withContext(Dispatchers.Default) { importPlaylist(text, file.name, library) }
-        val summary = importSummary(found.report)
-        if (found.songs.isEmpty()) {
+        val read = withContext(Dispatchers.Default) { importPlaylist(text, file.name, library) }
+        // On a server that keeps playlists, the lines the library missed are looked for online.
+        val match = read.match
+        val online = if (keepsPlaylists && match != null && match.missed.isNotEmpty()) findOnline(read.entries, match) else emptyMap()
+        val songs = if (online.isEmpty() || match == null) read.songs else withFinds(read.entries, match, read.songs, online)
+        val report = if (online.isEmpty() || match == null) read.report else read.report.withFound(online, match)
+        val summary = importSummary(report)
+        if (songs.isEmpty()) {
             notice = summary
-            noticeDetail = missedDetail(found.report.missed)
+            noticeDetail = missedDetail(report.missed)
             return@launch
         }
-        createPlaylist(found.report.name, found.songs) { id ->
+        createPlaylist(report.name, songs) { id ->
             if (id != null) {
                 notice = summary
-                noticeDetail = missedDetail(found.report.missed)
+                noticeDetail = missedDetail(report.missed)
                 navigator.go(Page.Playlist(id))
             }
         }

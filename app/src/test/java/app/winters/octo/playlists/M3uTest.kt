@@ -178,4 +178,37 @@ class M3uTest {
         assertEquals("Road trip  2026.m3u", playlistFileName("Road trip: 2026"))
         assertEquals("Playlist.m3u", playlistFileName("///"))
     }
+
+    // An entry is looked for online by what it says of the song: its
+    // #EXTINF, else its file name.
+    @Test
+    fun anEntryIsLookedForByItsInfoOrItsFileName() {
+        assertEquals("Kavinsky" to "Nightcall", M3uEntry("x.mp3", artist = "Kavinsky", title = "Nightcall").lookedFor())
+        assertEquals("" to "Nightcall", M3uEntry("x.mp3", title = "Nightcall").lookedFor())
+        assertEquals("Kavinsky" to "Nightcall", M3uEntry("Music/01 - Kavinsky - Nightcall.mp3").lookedFor())
+        assertEquals("" to "Nightcall", M3uEntry("Music/01_Nightcall.flac").lookedFor())
+        assertEquals(null, M3uEntry("").lookedFor())
+    }
+
+    @Test
+    fun theBestFindIsTheSameRecordingElseAnyVersionElseTheTitle() {
+        val live = track("find:1", "Nightcall (Live)", "Kavinsky")
+        val studio = track("find:2", "Nightcall", "Kavinsky")
+        val other = track("find:3", "Nightcall", "Someone Else")
+        assertEquals("find:2", bestFind(listOf(live, studio, other), "Kavinsky", "Nightcall"))
+        assertEquals("find:1", bestFind(listOf(live, other), "Kavinsky", "Nightcall"))
+        assertEquals(null, bestFind(listOf(other), "Kavinsky", "Nightcall"))
+        // With no artist named, the first with the title.
+        assertEquals("find:3", bestFind(listOf(other, studio), "", "Nightcall"))
+    }
+
+    // The finds take the places of the lines the library missed, and lines
+    // nobody found are left out.
+    @Test
+    fun findsGoInThePlacesOfTheLinesTheLibraryMissed() {
+        val entries = listOf(M3uEntry("a.mp3", line = 1), M3uEntry("b.mp3", line = 2), M3uEntry("c.mp3", line = 3), M3uEntry("d.mp3", line = 4))
+        val match = M3uMatch(listOf("t-a", "t-c"), listOf(entries[1], entries[3]))
+        assertEquals(listOf("t-a", "find:b", "t-c"), withFinds(entries, match, mapOf(entries[1] to "find:b")))
+        assertEquals(listOf("t-a", "t-c"), withFinds(entries, match, emptyMap()))
+    }
 }

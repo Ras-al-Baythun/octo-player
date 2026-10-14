@@ -16,6 +16,7 @@ import app.winters.octo.subsonic.FORM_POST_EXTENSION
 import app.winters.octo.subsonic.PlaylistWithSongs
 import app.winters.octo.subsonic.SubsonicClient
 import app.winters.octo.subsonic.SubsonicException
+import app.winters.octo.subsonic.refusesOutsideSong
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -66,6 +67,10 @@ class PlaylistSync @Inject constructor(
     val available: Flow<Boolean> = sessions.state.map { it is SessionState.SignedIn }
 
     val newOnServer: Flow<Boolean> = store.newOnServer
+
+    // Whether the signed-in server keeps playlists of its own, so songs
+    // found online can go in them.
+    val keepsFinds: Flow<Boolean> = sessions.state.map { (it as? SessionState.SignedIn)?.session?.keepsPlaylists == true }
 
     fun setNewOnServer(on: Boolean) {
         scope.launch { store.setNewOnServer(on) }
@@ -182,9 +187,12 @@ class PlaylistSync @Inject constructor(
         )
         val failed = steps.count { failureOf { run(server, it) } != null }
         val notices = keep.associate { it.id to it.octoNotice }
+        val octo = keep.filter { it.octoPlaylist }.mapTo(HashSet()) { it.id }
         for (row in user.serverPlaylists(server.sourceId)) {
-            val notice = row.serverId?.let(notices::get)
-            if (row.serverId != null && notice != row.octoNotice) user.markNotice(row.id, notice)
+            val serverId = row.serverId ?: continue
+            val notice = notices[serverId]
+            if (notice != row.octoNotice) user.markNotice(row.id, notice)
+            if ((serverId in octo) != row.octoPlaylist) user.markOctoPlaylist(row.id, serverId in octo)
         }
         if (steps.isNotEmpty()) {
             // Counts only, like the library sync's line.
@@ -220,7 +228,7 @@ class PlaylistSync @Inject constructor(
             user.playlistItems(playlist.id).map { it.trackId } == rows.map { it.trackId }
         }
         if (twin != null) {
-            user.linkPlaylist(twin.id, serverId, server.sourceId, twin.updatedAt, twin.name, stamp)
+            user.linkPlaylist(twin.id, serverId, server.sourceId, twin.updatedAt, twin.name, stamp, octo = full.octoPlaylist)
             return
         }
         val now = System.currentTimeMillis()
@@ -236,6 +244,7 @@ class PlaylistSync @Inject constructor(
             syncedAt = at,
             syncedName = full.name,
             serverStamp = stamp,
+            octoPlaylist = full.octoPlaylist,
         )
         user.insertServerPlaylist(row, items(id, rows))
     }
@@ -252,10 +261,10 @@ class PlaylistSync @Inject constructor(
         val rows = withPhoneOnly(fromServer, local) { serverSongFor(it, copies[it.trackId].orEmpty()) == null }
         val updated = if (step.keepName) {
             // Still counts as changed here until the name reaches the server.
-            before.copy(serverStamp = step.stamp)
+            before.copy(serverStamp = step.stamp, octoPlaylist = full.octoPlaylist)
         } else {
             val at = maxOf(System.currentTimeMillis(), before.updatedAt + 1)
-            before.copy(name = full.name, updatedAt = at, syncedAt = at, syncedName = full.name, serverStamp = step.stamp)
+            before.copy(name = full.name, updatedAt = at, syncedAt = at, syncedName = full.name, serverStamp = step.stamp, octoPlaylist = full.octoPlaylist)
         }
         if (!user.takeServerSongs(before, items(before.id, rows), updated)) return
         if (step.keepName) {
@@ -266,7 +275,9 @@ class PlaylistSync @Inject constructor(
     }
 
     // Sends the phone's songs and name. When the server changed too since
-    // both last agreed, it is settled like a sync would instead.
+    // both last agreed, it is settled like a sync would instead. A song
+    // found online joining a playlist of Navidrome's own, which refuses
+    // it, has the playlist made over as one of Octo's first.
     private suspend fun push(server: Server, playlist: PlaylistEntity) {
         val serverId = playlist.serverId ?: return
         val linked = playlist.linked() ?: return
@@ -279,30 +290,58 @@ class PlaylistSync @Inject constructor(
         }
         val stamp = listed.stamp
         val there = client.playlist(serverId)
-        val songs = songsToSend(server, playlist.id)
+        val rows = user.playlistItems(playlist.id)
+        val songs = songsToSend(server, rows)
+        if (server.keeps && !there.octoPlaylist && rows.any { isFind(it.trackId) }) return promote(server, playlist, serverId, songs)
         var sent = false
-        if (there.entry.map { it.id } != songs) {
-            client.replacePlaylistSongs(serverId, songs, server.formPost)
-            sent = true
-        }
-        if (there.name != playlist.name) {
-            client.updatePlaylist(serverId, name = playlist.name)
-            sent = true
+        try {
+            if (there.entry.map { it.id } != songs) {
+                client.replacePlaylistSongs(serverId, songs, server.formPost)
+                sent = true
+            }
+            if (there.name != playlist.name) {
+                client.updatePlaylist(serverId, name = playlist.name)
+                sent = true
+            }
+        } catch (e: SubsonicException) {
+            // Navidrome's own after all, whatever the server said it was.
+            if (server.keeps && e.refusesOutsideSong()) return promote(server, playlist, serverId, songs)
+            throw e
         }
         val after = if (sent) listingStamp(server, serverId) ?: return else stamp
         user.markSynced(playlist.id, playlist.updatedAt, playlist.name, after)
     }
 
-    // Makes a phone playlist on the server and links the two.
+    // Makes a phone playlist on the server and links the two. A server that
+    // keeps playlists of its own makes one of those, so a song found online
+    // can join later.
     private suspend fun create(server: Server, playlist: PlaylistEntity) {
         if (playlist.serverId != null || playlist.sourceId != server.sourceId) return
-        val songs = songsToSend(server, playlist.id)
-        val made = server.client.createPlaylist(playlist.name, songs, server.formPost)
+        val songs = songsToSend(server, user.playlistItems(playlist.id))
+        val made = server.client.createPlaylist(playlist.name, songs, server.formPost, octo = server.keeps)
         val serverId = made?.id ?: newestNamed(server, playlist.name) ?: return
         // Linked at once, so a failure from here on can never make it twice.
         val first = made?.let { stampOf(it.changed, it.songCount) }.orEmpty()
-        user.linkPlaylist(playlist.id, serverId, server.sourceId, playlist.updatedAt, playlist.name, first)
+        user.linkPlaylist(playlist.id, serverId, server.sourceId, playlist.updatedAt, playlist.name, first, octo = made?.octoPlaylist == true)
         listingStamp(server, serverId)?.let { user.markSynced(playlist.id, playlist.updatedAt, playlist.name, it) }
+    }
+
+    // Makes a playlist of Octo's own with the phone's songs in place of a
+    // playlist of Navidrome's, and links the phone's to it. The old one is
+    // deleted once the new one is linked; if that fails it stays, since
+    // nothing is lost that way, and the next sync brings it in as a
+    // playlist of its own.
+    private suspend fun promote(server: Server, playlist: PlaylistEntity, oldId: String, songs: List<String>) {
+        val made = server.client.createPlaylist(playlist.name, songs, server.formPost, octo = true)
+        val serverId = made?.id ?: throw SubsonicException.Server(0, "The server did not say the new playlist's id")
+        user.linkPlaylist(playlist.id, serverId, server.sourceId, playlist.updatedAt, playlist.name, stampOf(made.changed, made.songCount), octo = true)
+        try {
+            deleteOnServer(server, oldId)
+        } catch (e: SubsonicException) {
+            Log.w("Octo", "playlist sync: ${playlist.name} is an Octo playlist now, but the old copy $oldId could not be deleted: ${e.message}")
+        }
+        listingStamp(server, serverId)?.let { user.markSynced(playlist.id, playlist.updatedAt, playlist.name, it) }
+        Log.i("Octo", "playlist sync: ${playlist.name} made over as an Octo playlist")
     }
 
     private suspend fun deleteOnServer(server: Server, serverId: String) {
@@ -314,10 +353,10 @@ class PlaylistSync @Inject constructor(
         store.removeDeleted(server.account, serverId)
     }
 
-    // The server songs a phone playlist goes to the server as, in order,
-    // without the songs only on the phone.
-    private suspend fun songsToSend(server: Server, localId: String): List<String> {
-        val rows = user.playlistItems(localId).map { Row(it.trackId, it.serverSongId) }
+    // The server songs a phone playlist's rows go to the server as, in
+    // order, without the songs only on the phone.
+    private suspend fun songsToSend(server: Server, items: List<PlaylistItemEntity>): List<String> {
+        val rows = items.map { Row(it.trackId, it.serverSongId) }
         val copies = serverCopies(server.sourceId, rows.map { it.trackId })
         return rows.mapNotNull { serverSongFor(it, copies[it.trackId].orEmpty()) }
     }
@@ -368,7 +407,9 @@ class PlaylistSync @Inject constructor(
     private fun PlaylistEntity.linked(): LinkedPlaylist? =
         serverId?.let { LinkedPlaylist(id, it, name, edited, syncedName, serverStamp) }
 
-    private class Server(val client: SubsonicClient, val sourceId: String, val account: String, val formPost: Boolean)
+    // `keeps` is whether the server keeps playlists of its own (Octo's,
+    // which take songs found online).
+    private class Server(val client: SubsonicClient, val sourceId: String, val account: String, val formPost: Boolean, val keeps: Boolean)
 
     // The signed-in server, if there is one. Playlists linked for another
     // account on the same address are let go first; other servers' links
@@ -376,7 +417,7 @@ class PlaylistSync @Inject constructor(
     private suspend fun signedIn(): Server? {
         val session = (sessions.state.value as? SessionState.SignedIn)?.session ?: return null
         if (store.claim(session.sourceId, session.id)) user.unlinkServer(session.sourceId)
-        return Server(session.client, session.sourceId, session.id, session.extensions.any { it.startsWith("$FORM_POST_EXTENSION:") })
+        return Server(session.client, session.sourceId, session.id, session.extensions.any { it.startsWith("$FORM_POST_EXTENSION:") }, session.keepsPlaylists)
     }
 
     // Runs a server call, handing back what went wrong, if anything.

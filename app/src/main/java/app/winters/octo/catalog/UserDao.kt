@@ -191,18 +191,24 @@ interface UserDao {
     @Query("UPDATE playlist SET sourceId = :sourceId WHERE id = :id AND sourceId IS NULL")
     suspend fun keepOnServer(id: String, sourceId: String)
 
+    // `octo` is whether the server copy is a playlist Octo keeps itself.
     @Query(
         """
         UPDATE playlist SET serverId = :serverId, sourceId = :sourceId, syncedAt = :syncedAt,
-            syncedName = :name, serverStamp = :stamp
+            syncedName = :name, serverStamp = :stamp, octoPlaylist = :octo
         WHERE id = :id
         """,
     )
-    suspend fun linkPlaylist(id: String, serverId: String, sourceId: String, syncedAt: Long, name: String, stamp: String)
+    suspend fun linkPlaylist(id: String, serverId: String, sourceId: String, syncedAt: Long, name: String, stamp: String, octo: Boolean = false)
 
     // The server's notice mark for its copy of a playlist.
     @Query("UPDATE playlist SET octoNotice = :notice WHERE id = :id")
     suspend fun markNotice(id: String, notice: String?)
+
+    // Whether the server copy is a playlist Octo keeps itself, as the
+    // server lists it now.
+    @Query("UPDATE playlist SET octoPlaylist = :octo WHERE id = :id")
+    suspend fun markOctoPlaylist(id: String, octo: Boolean)
 
     // Both sides now agree on what the playlist was at `syncedAt`.
     @Query("UPDATE playlist SET syncedAt = :syncedAt, syncedName = :name, serverStamp = :stamp WHERE id = :id")
@@ -212,7 +218,7 @@ interface UserDao {
     @Query(
         """
         UPDATE playlist SET serverId = NULL, sourceId = NULL, syncedAt = NULL, syncedName = NULL, serverStamp = NULL,
-            octoNotice = NULL
+            octoNotice = NULL, octoPlaylist = 0
         WHERE id = :id
         """,
     )

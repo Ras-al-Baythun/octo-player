@@ -76,6 +76,11 @@ class MenuPlaceTest {
         )
         // A find on a playlist page can be taken out too.
         assertEquals(listOf(PlayNext, AddToQueue, Download, RemoveFromPlaylist, Info), songActions(find = true, radio = false, place = here))
+        // And put in another, where the server keeps such playlists.
+        assertEquals(
+            listOf(PlayNext, AddToQueue, AddToPlaylist, Download, RemoveFromPlaylist, Info),
+            songActions(find = true, radio = false, place = here, keeps = true),
+        )
         // Without the row there is nothing to take out.
         assertFalse(place(SongMenuContext(playlistId = "p")).inPlaylist)
     }

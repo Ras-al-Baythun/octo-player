@@ -79,6 +79,7 @@ import app.winters.octo.subsonic.FORM_POST_EXTENSION
 import app.winters.octo.subsonic.Playlist
 import app.winters.octo.subsonic.Song
 import app.winters.octo.subsonic.SubsonicException
+import app.winters.octo.subsonic.refusesOutsideSong
 import app.winters.octo.ui.family.FamilyModel
 import app.winters.octo.ui.imports.ImportModel
 import app.winters.octo.ui.search.withRecent
@@ -835,7 +836,9 @@ class AppState(
                 client.updatePlaylist(playlistId, songIdsToAdd = songs.map { it.id }, formPost = formPost)
                 refreshPlaylists()
             } catch (e: SubsonicException) {
-                notice = "Couldn't add to the playlist: ${e.userMessage()}"
+                // Navidrome's playlist cannot hold a song found online; Octo's can.
+                val playlist = playlists.firstOrNull { it.id == playlistId }
+                if (e.refusesOutsideSong() && keepsPlaylists && playlist != null) makeOverAsOcto(playlist, songs) else notice = "Couldn't add to the playlist: ${e.userMessage()}"
             }
         }
     }

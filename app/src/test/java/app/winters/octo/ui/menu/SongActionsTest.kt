@@ -100,8 +100,22 @@ class SongActionsTest {
         val actions = songActions(find = false, radio = true, lastPlaylist = true)
         assertEquals(listOf(PlayNext, AddToQueue, StartRadio, AddToLastPlaylist, AddToPlaylist, Like, Rate, GoToAlbum, GoToArtist, Info), actions)
         assertEquals(listOf(AddToLastPlaylist, AddToPlaylist, Like, Rate), songMenuGroups(actions)[1])
-        // A song found online cannot go in a playlist yet.
+        // A song found online cannot go in a playlist on a server that keeps none.
         assertEquals(listOf(PlayNext, AddToQueue, Download, Info), songActions(find = true, radio = false, lastPlaylist = true))
+    }
+
+    // On a server that keeps playlists of its own, a song found online goes
+    // in one like a library song, the last playlist first; it still cannot
+    // be liked or rated, and the add to the library stays.
+    @Test
+    fun aFoundSongGoesInAPlaylistWhenTheServerKeepsThem() {
+        assertEquals(listOf(PlayNext, AddToQueue, AddToPlaylist, Download, Info), songActions(find = true, radio = false, keeps = true))
+        val actions = songActions(find = true, radio = false, lastPlaylist = true, keeps = true, requestCopy = true)
+        assertEquals(listOf(PlayNext, AddToQueue, AddToLastPlaylist, AddToPlaylist, Download, SongAction.RequestCopy, Info), actions)
+        assertEquals(listOf(AddToLastPlaylist, AddToPlaylist, Download, SongAction.RequestCopy), songMenuGroups(actions)[1])
+        assertFalse(Like in actions)
+        // A library song's menu does not change with it.
+        assertEquals(songActions(find = false, radio = true), songActions(find = false, radio = true, keeps = true))
     }
 
     @Test

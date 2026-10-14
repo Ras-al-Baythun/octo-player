@@ -65,6 +65,16 @@ class PlaylistEditsTest {
         assertEquals(ids(400), calls.flatMap { it.params.all("songId") + it.params.all("songIdToAdd") })
     }
 
+    // An Octo playlist is asked for with the name, before the songs; a plain
+    // playlist sends nothing extra.
+    @Test
+    fun anOctoPlaylistIsAskedForWithTheName() {
+        val (first, rest) = createCalls("Drive", ids(2), formPost = false, octo = true)
+        assertEquals(listOf("name" to "Drive", "octo" to "true", "songId" to "s1", "songId" to "s2"), first.params)
+        assertTrue(rest.isEmpty())
+        assertEquals(listOf("name" to "Drive", "songId" to "s1"), createCalls("Drive", ids(1), formPost = false).first.params)
+    }
+
     @Test
     fun anEmptyListStillClearsThePlaylist() {
         val calls = replaceSongsCalls("pl1", emptyList(), formPost = false)
@@ -113,6 +123,25 @@ class PlaylistEditsTest {
         assertEquals(PLAYLIST_SONGS_PER_CALL, second.url.queryParameterValues("songIdToAdd").size)
         val third = server.takeRequest()
         assertEquals(listOf("s${PLAYLIST_SONGS_PER_CALL * 2 + 1}"), third.url.queryParameterValues("songIdToAdd"))
+    }
+
+    @Test
+    fun createAsksAnOctoServerForItsOwnPlaylist() = runTest {
+        ok(""","playlist":{"id":"of12345678901234567890","name":"Drive","songCount":1,"octoPlaylist":true,"entry":[]}""")
+        val made = client().createPlaylist("Drive", listOf("a"), octo = true)
+        val url = server.takeRequest().url
+        assertEquals("true", url.queryParameter("octo"))
+        assertEquals(listOf("a"), url.queryParameterValues("songId"))
+        assertTrue(made?.octoPlaylist == true)
+    }
+
+    // A refusal of a song found online names an Octo playlist; a playlist
+    // that is simply gone does not.
+    @Test
+    fun aRefusedOutsideSongIsToldFromAMissingPlaylist() {
+        assertTrue(SubsonicException.NotFound("song x can only be added to an Octo playlist").refusesOutsideSong())
+        assertFalse(SubsonicException.NotFound("Playlist not found").refusesOutsideSong())
+        assertFalse(SubsonicException.Server(0, "Octo playlist").refusesOutsideSong())
     }
 
     @Test
@@ -176,12 +205,16 @@ class PlaylistEditsTest {
         ok(
             ""","playlists":{"playlist":[
                 {"id":"pl1","name":"Mine","owner":"winters","songCount":3,"changed":"2026-09-20T08:00:00Z"},
-                {"id":"or1","name":"Your Mix","owner":"winters","songCount":40,"readonly":true,"validUntil":"2026-09-27T00:00:00Z"}
+                {"id":"or1","name":"Your Mix","owner":"winters","songCount":40,"readonly":true,"validUntil":"2026-09-27T00:00:00Z"},
+                {"id":"of12345678901234567890","name":"Finds","owner":"winters","songCount":2,"octoPlaylist":true}
             ]}""",
         )
         val lists = client().playlists()
         assertFalse(lists[0].readonly)
         assertTrue(lists[1].readonly)
+        // Only a playlist Octo keeps itself is marked so.
+        assertFalse(lists[0].octoPlaylist)
+        assertTrue(lists[2].octoPlaylist)
         assertEquals("2026-09-27T00:00:00Z", lists[1].validUntil)
         assertEquals("2026-09-20T08:00:00Z", lists[0].changed)
     }

@@ -64,9 +64,11 @@ fun playlistCopyName(name: String): String = "${name.trim()} (copy)"
 
 fun copiedMessage(copy: String): String = "Made a copy: $copy"
 
-// "Imported 42 of 45 songs into "Road trip"", or why nothing was.
+// "Imported 42 of 45 songs into "Road trip"", with how many of them were
+// found online when any were, or why nothing was.
 fun importSummary(report: ImportReport): String = when {
     report.total == 0 -> "\"${report.name}\" has no songs in it."
     report.matched == 0 -> "None of the ${report.total} songs in \"${report.name}\" are in your library."
-    else -> "Imported ${report.matched} of ${if (report.total == 1) "1 song" else "${report.total} songs"} into \"${report.name}\""
+    else -> "Imported ${report.matched} of ${if (report.total == 1) "1 song" else "${report.total} songs"} into \"${report.name}\"" +
+        if (report.found > 0) ", ${report.found} found online" else ""
 }

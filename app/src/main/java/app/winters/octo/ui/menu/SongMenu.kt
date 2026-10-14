@@ -145,9 +145,10 @@ fun menuPlace(context: SongMenuContext, albumId: String, artistId: String): Menu
 )
 
 // What a song's menu offers. A song found online has no album or artist in
-// the library and cannot be liked, rated or put in a playlist yet, so it
-// offers a download instead. Radio needs a server signed in; sharing needs
-// a copy of the song on a server that shares. A library song only on a
+// the library and cannot be liked or rated, so it offers a download
+// instead; it goes in a playlist only when the server keeps playlists of
+// its own (`keeps`), which take such songs. Radio needs a server signed
+// in; sharing needs a copy of the song on a server that shares. A library song only on a
 // server (`offline`) can be downloaded to the phone. One with a file on the
 // phone (`phone`) can send that file, ring with it, or delete it.
 // `lastPlaylist` is whether a playlist was added to lately, offered first
@@ -174,11 +175,14 @@ fun songActions(
     disk: Boolean = false,
     requestCopy: Boolean = false,
     removeFromMine: Boolean = false,
+    keeps: Boolean = false,
 ): List<SongAction> = buildList {
     add(SongAction.PlayNext)
     add(SongAction.AddToQueue)
     if (radio) add(SongAction.StartRadio)
     if (find) {
+        if (keeps && lastPlaylist) add(SongAction.AddToLastPlaylist)
+        if (keeps) add(SongAction.AddToPlaylist)
         add(SongAction.Download)
         if (requestCopy) add(SongAction.RequestCopy)
         if (place.inPlaylist) add(SongAction.RemoveFromPlaylist)
@@ -302,6 +306,11 @@ class SongMenuViewModel @Inject constructor(
 
     // Whether the signed-in server can make shared links.
     val sharing: StateFlow<Boolean> = controls.sharing
+
+    // Whether the signed-in server keeps playlists of its own, so a song
+    // found online can go in one.
+    val keepsPlaylists: StateFlow<Boolean> = playlists.keepsFinds
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
     // Whether the signed-in Octo server can look for FLACs.
     val canUpgrade: StateFlow<Boolean> = upgrades.canUpgrade

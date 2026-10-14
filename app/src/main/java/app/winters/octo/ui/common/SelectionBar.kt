@@ -38,6 +38,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.winters.octo.catalog.isFind
 import app.winters.octo.design.FloatingGlaze
@@ -47,6 +48,7 @@ import app.winters.octo.design.OctoType
 import app.winters.octo.offline.OfflineDownloads
 import app.winters.octo.playback.LikeStore
 import app.winters.octo.playback.PlaybackConnection
+import app.winters.octo.playback.PlaylistStore
 import app.winters.octo.health.DELETE_FROM_DISK
 import app.winters.octo.ui.menu.DiskDeleteHost
 import app.winters.octo.ui.menu.DiskDeleteViewModel
@@ -54,7 +56,9 @@ import app.winters.octo.ui.menu.PhoneFileActions
 import app.winters.octo.ui.playlist.LocalPlaylistSheets
 import app.winters.octo.ui.playlist.PlaylistSheet
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.stateIn
 import javax.inject.Inject
 
 private val BarShape = RoundedCornerShape(28.dp)
@@ -64,8 +68,14 @@ class SelectionBarViewModel @Inject constructor(
     private val playback: PlaybackConnection,
     private val likes: LikeStore,
     private val offline: OfflineDownloads,
+    playlists: PlaylistStore,
 ) : ViewModel() {
     val liked: StateFlow<Set<String>> = likes.liked
+
+    // Whether the signed-in server keeps playlists of its own, so songs
+    // found online can go in one with the rest.
+    val keepsFinds: StateFlow<Boolean> = playlists.keepsFinds
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
     fun play(ids: List<String>) = playback.playTracks(ids, 0)
     fun playNext(ids: List<String>) = playback.playNext(ids)
@@ -112,10 +122,13 @@ fun SelectionBarHost(
 @Composable
 private fun SelectionBar(target: SelectionTarget, phoneFiles: PhoneFileActions, vm: SelectionBarViewModel, disk: DiskDeleteViewModel) {
     val liked by vm.liked.collectAsStateWithLifecycle()
+    val keepsFinds by vm.keepsFinds.collectAsStateWithLifecycle()
     val sheets = LocalPlaylistSheets.current
     val picked = target.picked()
     val ids = picked.map { it.track.id }
     val library = ids.filterNot(::isFind)
+    // Finds go in a playlist too when the server keeps them.
+    val forPlaylist = if (keepsFinds) ids else library
     val allLiked = library.isNotEmpty() && library.all { it in liked }
     val canDownload = picked.any { !it.track.onPhone && !isFind(it.track.id) }
     // Files are shared or deleted only when every picked song has one.
@@ -177,8 +190,8 @@ private fun SelectionBar(target: SelectionTarget, phoneFiles: PhoneFileActions, 
                 BarButton(OctoIcons.Play, "Play", each) { act { vm.play(ids) } }
                 BarButton(OctoIcons.PlayNext, "Play next", each) { act { vm.playNext(ids) } }
                 BarButton(OctoIcons.AddToQueue, "Add to queue", each) { act { vm.addToQueue(ids) } }
-                BarButton(OctoIcons.AddToPlaylist, "Add to playlist", each, enabled = library.isNotEmpty()) {
-                    act { sheets.show(PlaylistSheet.Pick(library)) }
+                BarButton(OctoIcons.AddToPlaylist, "Add to playlist", each, enabled = forPlaylist.isNotEmpty()) {
+                    act { sheets.show(PlaylistSheet.Pick(forPlaylist)) }
                 }
                 BarButton(OctoIcons.Download, "Download", each, enabled = canDownload) { act { vm.download(library) } }
                 BarButton(

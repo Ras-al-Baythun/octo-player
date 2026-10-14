@@ -553,9 +553,11 @@ class SubsonicClient(
     // order, and answers with it as the server now has it (null from a
     // server older than API 1.14, which sends nothing back). `formPost`
     // sends the params in a form body, for a server that lists that
-    // extension; otherwise a long list goes in batches.
-    suspend fun createPlaylist(name: String, songIds: List<String>, formPost: Boolean = false): PlaylistWithSongs? {
-        val (first, rest) = createCalls(name, songIds, formPost)
+    // extension; otherwise a long list goes in batches. `octo` asks an Octo
+    // server for a playlist it keeps itself, one that takes songs found
+    // online (OCTO_PLAYLISTS).
+    suspend fun createPlaylist(name: String, songIds: List<String>, formPost: Boolean = false, octo: Boolean = false): PlaylistWithSongs? {
+        val (first, rest) = createCalls(name, songIds, formPost, octo = octo)
         val created = decode(sendCall(first, formPost), null, CreatedPlaylist.serializer(), null).playlist
         if (rest.isNotEmpty()) {
             val id = created?.id ?: throw SubsonicException.Server(0, "The server did not say the new playlist's id")

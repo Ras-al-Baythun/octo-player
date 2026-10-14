@@ -210,8 +210,10 @@ fun M3uEntry.shown(): String = when {
 }
 
 // How an import went: the playlist made, how many of the file's songs were
-// found, and the lines that were not.
-data class ImportReport(val name: String, val matched: Int, val total: Int, val missed: List<String>)
+// found, and the lines that were not. `found` is how many of the matched
+// were found online rather than in the library, on a server that keeps
+// such songs in its playlists.
+data class ImportReport(val name: String, val matched: Int, val total: Int, val missed: List<String>, val found: Int = 0)
 
 // A file name for a playlist, without characters file systems refuse. It is
 // written as UTF-8, which today's players read in an .m3u file too.

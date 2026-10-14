@@ -255,6 +255,9 @@ data class Playlist(
     // Shorter words for the list's cover than its name, when the server
     // gives them ("Popular" for "Popular right now").
     val octoCoverTitle: String? = null,
+    // A playlist an Octo server keeps itself, which takes songs found
+    // online; Navidrome's own refuse them.
+    val octoPlaylist: Boolean = false,
 )
 
 @Serializable
@@ -279,6 +282,7 @@ data class PlaylistWithSongs(
     val octoList: String? = null,
     val octoNotice: String? = null,
     val octoCoverTitle: String? = null,
+    val octoPlaylist: Boolean = false,
 )
 
 // Where one of a playlist's songs sits on the server, for writing a

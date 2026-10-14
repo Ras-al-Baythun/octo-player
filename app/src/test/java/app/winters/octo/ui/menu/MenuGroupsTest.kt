@@ -79,6 +79,11 @@ class MenuGroupsTest {
             listOf(listOf(PlayNext, AddToQueue, StartRadio), listOf(Download), listOf(Info)),
             songMenuGroups(songActions(find = true, radio = true)),
         )
+        // Where the server keeps such playlists, the playlist comes before the add.
+        assertEquals(
+            listOf(listOf(PlayNext, AddToQueue, StartRadio), listOf(AddToPlaylist, Download), listOf(Info)),
+            songMenuGroups(songActions(find = true, radio = true, keeps = true)),
+        )
     }
 
     @Test

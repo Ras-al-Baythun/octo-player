@@ -1,5 +1,6 @@
 package app.winters.octo.catalog
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
@@ -60,6 +61,10 @@ data class PlaylistEntity(
     // Which of Octo's notice lists the server copy is ("review",
     // "duplicates"), so its cover carries that list's glyph.
     val octoNotice: String? = null,
+    // Whether the server copy is one Octo keeps itself, which takes songs
+    // found online; Navidrome's own refuse them, and are made over as one
+    // of Octo's when a find joins.
+    @ColumnInfo(defaultValue = "0") val octoPlaylist: Boolean = false,
 )
 
 @Entity(

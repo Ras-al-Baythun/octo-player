@@ -158,6 +158,7 @@ private fun SongActionsPage(
     val radio by vm.radio.collectAsStateWithLifecycle()
     val canUpgrade by vm.canUpgrade.collectAsStateWithLifecycle()
     val canFindSongs by vm.canFindSongs.collectAsStateWithLifecycle()
+    val keepsPlaylists by vm.keepsPlaylists.collectAsStateWithLifecycle()
     val upgradable by produceState(emptyList<UpgradeAsk>(), trackId, canUpgrade) { value = if (canUpgrade) vm.upgradable(trackId) else emptyList() }
     val canRemove by vm.canRemove.collectAsStateWithLifecycle()
     val onDisk by produceState(false, trackId, canRemove) { value = canRemove && vm.deletable(trackId) }
@@ -181,6 +182,7 @@ private fun SongActionsPage(
         disk = onDisk,
         requestCopy = vm.family.outside.offersRequest,
         removeFromMine = inMine,
+        keeps = keepsPlaylists,
     )
     // A family member whose songs are saved rather than added.
     val saves = vm.family.outside.addLabel != null

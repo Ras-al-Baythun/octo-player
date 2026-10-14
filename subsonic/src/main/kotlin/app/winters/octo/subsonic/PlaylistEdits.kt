@@ -6,6 +6,17 @@ import kotlinx.serialization.Serializable
 // in a form body, so a long list of songs fits in one call.
 const val FORM_POST_EXTENSION = "formPost"
 
+// The OpenSubsonic extension an Octo server lists when it keeps playlists
+// of its own, which take songs found online. Navidrome's own playlists
+// refuse such a song (see refusesOutsideSong).
+const val OCTO_PLAYLISTS = "octoPlaylists"
+
+// Whether a playlist call failed because the playlist is Navidrome's own
+// and a song found online was sent to it: code 70, naming an Octo playlist
+// as what it would take.
+fun SubsonicException.refusesOutsideSong(): Boolean =
+    this is SubsonicException.NotFound && message.orEmpty().contains("Octo playlist")
+
 // How many song ids go in one call when they must fit in the address. 150
 // ids come to about 5 KB, under the 8 KB most servers and proxies allow.
 const val PLAYLIST_SONGS_PER_CALL = 150
@@ -34,10 +45,18 @@ fun replaceSongsCalls(
 }
 
 // The calls that make a new playlist: the first batch goes with the name,
-// and the rest are added once the server says the new id.
-fun createCalls(name: String, songIds: List<String>, formPost: Boolean, perCall: Int = PLAYLIST_SONGS_PER_CALL): Pair<PlaylistCall, List<List<String>>> {
+// and the rest are added once the server says the new id. `octo` asks an
+// Octo server for one of its own playlists, which takes songs found online.
+fun createCalls(
+    name: String,
+    songIds: List<String>,
+    formPost: Boolean,
+    perCall: Int = PLAYLIST_SONGS_PER_CALL,
+    octo: Boolean = false,
+): Pair<PlaylistCall, List<List<String>>> {
     val batches = songBatches(songIds, formPost, perCall)
-    return PlaylistCall("createPlaylist", listOf("name" to name) + batches.first().map { "songId" to it }) to batches.drop(1)
+    val params = listOf("name" to name) + (if (octo) listOf("octo" to "true") else emptyList()) + batches.first().map { "songId" to it }
+    return PlaylistCall("createPlaylist", params) to batches.drop(1)
 }
 
 // One updatePlaylist call per batch, each adding its songs to the end.

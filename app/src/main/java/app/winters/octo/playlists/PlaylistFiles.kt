@@ -8,7 +8,9 @@ import app.winters.octo.catalog.SourceDao
 import app.winters.octo.catalog.UserDao
 import app.winters.octo.device.DEVICE
 import app.winters.octo.device.DeviceLibrary
+import app.winters.octo.discovery.Discovery
 import app.winters.octo.playback.PlaylistStore
+import app.winters.octo.subsonic.SubsonicException
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
@@ -17,6 +19,10 @@ import java.io.ByteArrayOutputStream
 import java.io.InputStream
 import javax.inject.Inject
 import javax.inject.Singleton
+
+// How many lines the library lacks are looked for online, one after
+// another, so a long file still imports in good time.
+private const val ONLINE_LOOKUPS = 200
 
 // Reads playlist files the listener picks into new playlists, and writes
 // playlists out as files other players can open.
@@ -28,17 +34,38 @@ class PlaylistFiles @Inject constructor(
     private val userDao: UserDao,
     private val device: DeviceLibrary,
     private val store: PlaylistStore,
+    private val discovery: Discovery,
 ) {
     // Makes a playlist from a picked M3U or M3U8 file, named after the file,
-    // with the songs the library has. Null when the file cannot be read.
+    // with the songs the library has and, on a server that keeps songs
+    // found online in its playlists, the ones it finds for the rest. Null
+    // when the file cannot be read.
     suspend fun import(uri: Uri): ImportReport? = withContext(Dispatchers.IO) {
         val text = runCatching { readText(uri) }.getOrNull() ?: return@withContext null
         val entries = parseM3u(text)
         val name = playlistNameOf(displayName(uri))
         if (entries.isEmpty()) return@withContext ImportReport(name, 0, 0, emptyList())
         val match = matchM3u(entries, catalog.tracks().first(), phonePaths())
-        if (match.trackIds.isNotEmpty()) store.create(name, match.trackIds)
-        ImportReport(name, match.trackIds.size, entries.size, match.missed.map { it.shown() })
+        val found = if (match.missed.isNotEmpty() && store.keepsFinds.first()) foundOnline(match.missed) else emptyMap()
+        val trackIds = withFinds(entries, match, found)
+        if (trackIds.isNotEmpty()) store.create(name, trackIds)
+        ImportReport(name, trackIds.size, entries.size, match.missed.filter { it !in found }.map { it.shown() }, found = found.size)
+    }
+
+    // The song found online for each entry the server can find, by what
+    // the entry says of it. Stops when the server stops answering.
+    private suspend fun foundOnline(missed: List<M3uEntry>): Map<M3uEntry, String> {
+        val found = HashMap<M3uEntry, String>()
+        for (entry in missed.take(ONLINE_LOOKUPS)) {
+            val (artist, title) = entry.lookedFor() ?: continue
+            val songs = try {
+                discovery.search("$artist $title".trim())?.songs ?: break
+            } catch (e: SubsonicException) {
+                break
+            }
+            bestFind(songs, artist, title)?.let { found[entry] = it }
+        }
+        return found
     }
 
     // Writes a playlist to a picked file: each song's length, artist and

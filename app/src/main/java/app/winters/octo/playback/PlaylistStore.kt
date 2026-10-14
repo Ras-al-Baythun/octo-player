@@ -1,14 +1,18 @@
 package app.winters.octo.playback
 
 import app.winters.octo.catalog.CatalogDao
+import app.winters.octo.catalog.OnlineDao
 import app.winters.octo.catalog.PlaylistEntity
 import app.winters.octo.catalog.PlaylistItemEntity
 import app.winters.octo.catalog.PlaylistSummary
+import app.winters.octo.catalog.TrackEntity
 import app.winters.octo.catalog.UserDao
+import app.winters.octo.catalog.isFind
 import app.winters.octo.catalog.shownWith
 import app.winters.octo.catalog.summarize
 import app.winters.octo.data.SessionRepository
 import app.winters.octo.data.SessionState
+import app.winters.octo.discovery.asTrack
 import app.winters.octo.playlists.PlaylistSync
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -22,11 +26,13 @@ import javax.inject.Singleton
 
 // The listener's playlists. Changes run on the store's own scope, so they
 // finish even if the page that asked for them closes. A playlist kept with
-// the server sends each change there.
+// the server sends each change there. Songs found online go in beside
+// library songs, as the rows the playlist page shows them as.
 @Singleton
 class PlaylistStore @Inject constructor(
     private val userDao: UserDao,
     private val catalog: CatalogDao,
+    private val online: OnlineDao,
     private val sync: PlaylistSync,
     sessions: SessionRepository,
 ) {
@@ -40,6 +46,10 @@ class PlaylistStore @Inject constructor(
             summarize(rows.filter { it.shownWith(server) }, entries)
         }
 
+    // Whether the signed-in server keeps playlists of its own, so songs
+    // found online can go in them.
+    val keepsFinds: Flow<Boolean> = sync.keepsFinds
+
     // Makes a playlist, with the songs in it if any are given, and gives
     // back the id it will have.
     fun create(name: String, trackIds: List<String> = emptyList()): String {
@@ -47,10 +57,20 @@ class PlaylistStore @Inject constructor(
         scope.launch {
             val now = System.currentTimeMillis()
             userDao.insertPlaylist(PlaylistEntity(id, name.trim(), createdAt = now, updatedAt = now))
-            if (trackIds.isNotEmpty()) userDao.addToPlaylist(id, catalog.tracksByIds(trackIds), now)
+            if (trackIds.isNotEmpty()) userDao.addToPlaylist(id, tracksFor(trackIds), now)
             sync.created(id)
         }
         return id
+    }
+
+    // The songs as rows for a playlist, in the order given: library songs,
+    // and songs found online shaped like them. One the library and the
+    // finds both lack is left out.
+    private suspend fun tracksFor(trackIds: List<String>): List<TrackEntity> {
+        val library = catalog.tracksByIds(trackIds)
+        val finds = trackIds.filter(::isFind).distinct().chunked(900).flatMap { online.byIds(it) }.map { it.asTrack() }
+        val found = (library + finds).associateBy { it.id }
+        return trackIds.mapNotNull { found[it] }
     }
 
     fun rename(id: String, name: String) {
@@ -71,7 +91,7 @@ class PlaylistStore @Inject constructor(
     // Adds songs to the end. `added` hears the new rows, to take them back out.
     fun add(id: String, trackIds: List<String>, added: (List<Long>) -> Unit = {}) {
         scope.launch {
-            val rows = userDao.addToPlaylist(id, catalog.tracksByIds(trackIds), System.currentTimeMillis())
+            val rows = userDao.addToPlaylist(id, tracksFor(trackIds), System.currentTimeMillis())
             sync.changed(id)
             if (rows.isNotEmpty()) added(rows)
         }

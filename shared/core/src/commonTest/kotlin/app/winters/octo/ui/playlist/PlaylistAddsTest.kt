@@ -14,6 +14,16 @@ class PlaylistAddsTest {
         assertFalse(plan.asks)
     }
 
+    // A song found online is on a playlist like any other: it is asked
+    // about before it goes on again.
+    @Test
+    fun aSongFoundOnlineCountsAsAlreadyThere() {
+        val plan = planAdd(listOf("find:s1", "find:s2"), onPlaylist = setOf("find:s1", "t1"))
+        assertEquals(listOf("find:s2"), plan.fresh)
+        assertEquals(listOf("find:s1"), plan.repeats)
+        assertTrue(plan.asks)
+    }
+
     @Test
     fun eachSongGoesInOnceInTheOrderGiven() {
         val plan = planAdd(listOf("b", "a", "b"), onPlaylist = emptySet())
@@ -86,6 +96,8 @@ class PlaylistAddsTest {
     fun anImportSaysHowManySongsWereFound() {
         assertEquals("Imported 18 of 20 songs into \"Road trip\"", importSummary(ImportReport("Road trip", 18, 20, listOf("a", "b"))))
         assertEquals("Imported 1 of 1 song into \"Road trip\"", importSummary(ImportReport("Road trip", 1, 1, emptyList())))
+        // With some found online rather than in the library, it says how many.
+        assertEquals("Imported 20 of 20 songs into \"Road trip\", 2 found online", importSummary(ImportReport("Road trip", 20, 20, emptyList(), found = 2)))
         assertEquals("None of the 4 songs in \"Road trip\" are in your library.", importSummary(ImportReport("Road trip", 0, 4, emptyList())))
         assertEquals("\"Road trip\" has no songs in it.", importSummary(ImportReport("Road trip", 0, 0, emptyList())))
     }
