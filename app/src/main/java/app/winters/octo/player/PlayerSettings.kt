@@ -63,7 +63,7 @@ data class PlayerPrefs(
     // Similar songs keep playing once the queue runs out.
     val autoplay: Boolean = true,
     // How Octo's radio is tuned (see RadioTuning).
-    val radioDiscovery: RadioDiscovery = RadioDiscovery.Balanced,
+    val radioDiscovery: RadioDiscovery = RadioDiscovery.Lots,
     val radioAdventure: RadioAdventure = RadioAdventure.Balanced,
     val radioVariety: RadioVariety = RadioVariety.Normal,
     val radioFavorites: Boolean = false,

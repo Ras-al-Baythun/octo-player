@@ -126,7 +126,7 @@ fun HomePage(app: AppState, visit: Visit) {
                 // left out, then a way to change them.
                 sections.filter { it.shown }.forEach { entry ->
                     when (entry.section) {
-                        HomeSection.RecentlyPlayed -> albums(app, entry.section.title, home.recentlyPlayed) { app.navigator.go(Page.History) }
+                        HomeSection.RecentlyPlayed -> albums(app, entry.section.title, home.recentlyPlayed.filter(app::showsAsAlbum)) { app.navigator.go(Page.History) }
                         HomeSection.MadeForYou -> if (forYou.isNotEmpty()) {
                             moving(key = "shelf:foryou") { ShelfRow(entry.section.title, forYou, { it.id }, null) { PlaylistCard(app, it) } }
                         }
@@ -153,7 +153,7 @@ fun HomePage(app: AppState, visit: Visit) {
                             }
                         }
                         HomeSection.Charts -> app.search?.charts?.let { chartsRow(app, it, store) }
-                        HomeSection.RecentlyAdded -> albums(app, entry.section.title, home.recentlyAdded) { app.navigator.go(Page.RecentlyAdded) }
+                        HomeSection.RecentlyAdded -> albums(app, entry.section.title, home.recentlyAdded.filter(app::showsAsAlbum)) { app.navigator.go(Page.RecentlyAdded) }
                         HomeSection.MostPlayed ->
                             albums(app, entry.section.title, home.mostPlayed, whole = home.mostPlayed.size < SHELF_SIZE, seeAll = open(AlbumShelf.MostPlayed))
                         HomeSection.FavoriteAlbums -> {
@@ -161,10 +161,10 @@ fun HomePage(app: AppState, visit: Visit) {
                                 app.navigator.go(Page.Favourites)
                                 app.navigator.keepTab(app.navigator.current, "Albums")
                             }
-                            // The listener's playlists go with their favorite albums.
-                            if (playlists.isNotEmpty()) {
-                                moving(key = "shelf:playlists") { ShelfRow("Your playlists", playlists, { it.id }, null) { PlaylistCard(app, it) } }
-                            }
+                        }
+                        // A section of its own, placed and hidden in Settings like the rest.
+                        HomeSection.Playlists -> if (playlists.isNotEmpty()) {
+                            moving(key = "shelf:playlists") { ShelfRow(entry.section.title, playlists, { it.id }, null) { PlaylistCard(app, it) } }
                         }
                         HomeSection.NotPlayedLately -> found?.let {
                             albums(app, AlbumShelf.NotPlayedLately.title, it.notPlayedLately, whole = it.notPlayedLately.size < SHELF_SIZE, seeAll = open(AlbumShelf.NotPlayedLately))

@@ -60,7 +60,7 @@ class PlayerViewModel @Inject constructor(
     private val likes: LikeStore,
     catalog: CatalogDao,
     online: OnlineDao,
-    settings: PlayerSettings,
+    private val settings: PlayerSettings,
     private val deviceVolume: DeviceVolume,
     private val sleepTimer: SleepTimer,
     private val lyricsRepository: LyricsRepository,
@@ -166,6 +166,12 @@ class PlayerViewModel @Inject constructor(
     }
 
     fun playNextInQueue(entry: QueueEntry) = editor.playNext(entry.key)
+
+    // Autoplay from the queue sheet, the same setting as in Playback. Off
+    // takes out the songs it already added.
+    fun setAutoplay(on: Boolean) {
+        viewModelScope.launch { settings.setAutoplay(on) }
+    }
 
     // The listener's queue as a playlist: what played, the song on now and
     // what is still to come, without the songs Autoplay added.

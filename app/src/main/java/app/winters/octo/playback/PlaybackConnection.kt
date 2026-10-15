@@ -48,6 +48,7 @@ class PlaybackConnection @Inject constructor(
     @ApplicationContext private val context: Context,
     private val catalog: CatalogDao,
     private val lengths: RealLengths,
+    private val albumsChosen: AlbumsChosen,
 ) {
     private val scope = MainScope()
     private var future: ListenableFuture<MediaController>? = null
@@ -149,6 +150,14 @@ class PlaybackConnection @Inject constructor(
             c.prepare()
             c.play()
         }
+        if (source != null) scope.launch { noteAlbum(trackIds, source) }
+    }
+
+    // An album played as an album, from its page or menu: all the songs
+    // played are its own and the list carries its name.
+    private suspend fun noteAlbum(trackIds: List<String>, source: String) {
+        val albumId = catalog.tracksByIdsUnordered(trackIds).map { it.albumId }.distinct().singleOrNull() ?: return
+        if (catalog.album(albumId).first()?.title == source) albumsChosen.add(albumId)
     }
 
     // Puts a list of songs in place of the queue, at one of them and a place
@@ -226,7 +235,13 @@ class PlaybackConnection @Inject constructor(
         if (trackIds.isNotEmpty()) c.sendCustomCommand(PLAY_NEXT, playNextArgs(trackIds))
     }
 
-    fun playLast(trackIds: List<String>) = withController { c -> c.addMediaItems(trackIds.map(::songRequest)) }
+    // Added songs go after the listener's own and the list's, but before
+    // any songs Autoplay already put on: their picks come first.
+    fun playLast(trackIds: List<String>) = withController { c ->
+        val requests = trackIds.map(::songRequest)
+        val autoplayAt = (c.currentMediaItemIndex + 1 until c.mediaItemCount).firstOrNull { c.getMediaItemAt(it).isAutoplay }
+        if (autoplayAt == null) c.addMediaItems(requests) else c.addMediaItems(autoplayAt, requests)
+    }
 
     // A song found online plays from another video now, `version`: the
     // song on, if it is that one, starts over from it.

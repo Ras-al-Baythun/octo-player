@@ -61,6 +61,15 @@ class Autoplay(
     @Volatile private var doneFor: Long? = null
 
     fun start(): Job = scope.launch {
+        // Switched off: the songs it added that have not played yet go.
+        launch {
+            enabled.collect { on ->
+                if (!on) {
+                    val added = player.state.value.upcoming.filter { it.source == QueueSource.Autoplay }.map { it.key }
+                    if (added.isNotEmpty()) player.remove(added)
+                }
+            }
+        }
         combine(player.state, enabled) { state, on -> lastSong(state, on) }
             .distinctUntilChanged()
             .collect { key -> check(key) }

@@ -128,6 +128,9 @@ data class FramePrefs(
     val foldedGroups: Set<String> = emptySet(),
     // Playlists kept at the top of the sidebar's list, by id, in order.
     val pinnedPlaylists: List<String> = emptyList(),
+    // Albums played or downloaded as a whole album, by id, so they show as
+    // albums however few of their songs the library has (see isOwnAlbum).
+    val chosenAlbums: Set<String> = emptySet(),
     // Whether the time on the right counts down (the time left) or shows
     // the song's length.
     val showTimeLeft: Boolean = true,
@@ -331,7 +334,7 @@ data class PlaybackPrefs(
     val streamQuality: String = "Original",
     val startAfter: StartAfter = StartAfter.Short,
     // How Octo's radio is tuned (see RadioTuning).
-    val radioDiscovery: RadioDiscovery = RadioDiscovery.Balanced,
+    val radioDiscovery: RadioDiscovery = RadioDiscovery.Lots,
     val radioAdventure: RadioAdventure = RadioAdventure.Balanced,
     val radioVariety: RadioVariety = RadioVariety.Normal,
     val radioFavorites: Boolean = false,

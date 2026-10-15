@@ -107,10 +107,13 @@ class PlayQueue(private val random: Random = Random.Default) {
     // Puts songs at the end of the queue; shuffled, they play after
     // everything still to come. The listener's own can be taken back;
     // songs a radio or Autoplay adds cannot.
+    // Anything but Autoplay's own goes before the songs Autoplay already
+    // added, so the listener's picks and lists always come first.
     fun add(songs: List<Song>, source: QueueSource = QueueSource.You) {
         if (songs.isEmpty()) return
         edit(undoable = source == QueueSource.You) {
-            insert(entries.size, songs, source, order.size)
+            val autoplay = if (source == QueueSource.Autoplay) null else upcoming.firstOrNull { it.source == QueueSource.Autoplay }
+            placeBefore(songs, autoplay?.key, source)
         }
     }
 
@@ -119,12 +122,15 @@ class PlayQueue(private val random: Random = Random.Default) {
     // does. Wherever they land, they are the listener's own.
     fun insertBefore(songs: List<Song>, before: Long?) {
         if (songs.isEmpty()) return
-        edit(undoable = true) {
-            val target = upcoming.firstOrNull { it.key == before }
-            val position = target?.let { t -> entries.indexOfFirst { it.key == t.key } } ?: entries.size
-            val placed = if (target != null) order.indexOf(position) else order.size
-            insert(position, songs, QueueSource.You, placed)
-        }
+        edit(undoable = true) { placeBefore(songs, before, QueueSource.You) }
+    }
+
+    // Songs to come just before the entry `before`, or at the end.
+    private fun placeBefore(songs: List<Song>, before: Long?, source: QueueSource) {
+        val target = upcoming.firstOrNull { it.key == before }
+        val position = target?.let { t -> entries.indexOfFirst { it.key == t.key } } ?: entries.size
+        val placed = if (target != null) order.indexOf(position) else order.size
+        insert(position, songs, source, placed)
     }
 
     // Songs go in at queue position `at`, after the first `placed` entries

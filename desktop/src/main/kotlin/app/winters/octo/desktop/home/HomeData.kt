@@ -57,6 +57,7 @@ val DesktopHomeSections: Set<HomeSection> = setOf(
     HomeSection.NotPlayedLately,
     HomeSection.NeverFinished,
     HomeSection.NeverPlayed,
+    HomeSection.Playlists,
 )
 
 // The part of a chart Home's row shows: its first songs.

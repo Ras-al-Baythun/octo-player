@@ -28,6 +28,7 @@ import androidx.navigation3.runtime.NavKey
 import app.winters.octo.design.OctoColors
 import app.winters.octo.design.OctoType
 import app.winters.octo.favourites.PinnedItem
+import app.winters.octo.catalog.PlaylistSummary
 import app.winters.octo.ui.common.AlbumCard
 import app.winters.octo.ui.common.Artwork
 import app.winters.octo.ui.common.SectionTitle
@@ -74,6 +75,35 @@ fun LazyListScope.pinnedShelf(pins: List<PinnedItem>, onOpen: (NavKey) -> Unit) 
                     }
                 }
             }
+        }
+    }
+}
+
+// The listener's playlists, as Pinned draws a pinned one.
+fun LazyListScope.playlistShelf(title: String, playlists: List<PlaylistSummary>, onOpen: (NavKey) -> Unit) {
+    if (playlists.isEmpty()) return
+    item(key = "title:$title") { SectionTitle(title, Modifier.padding(top = 18.dp)) }
+    item(key = "row:$title") {
+        LazyRow(
+            contentPadding = PaddingValues(horizontal = 20.dp),
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            items(playlists, key = { it.id }) { playlist -> PlaylistShelfCard(playlist, onOpen, Modifier.animateItem()) }
+        }
+    }
+}
+
+@Composable
+private fun PlaylistShelfCard(playlist: PlaylistSummary, onOpen: (NavKey) -> Unit, modifier: Modifier = Modifier) {
+    PinnedCard(
+        title = playlist.name,
+        subtitle = "Playlist",
+        onClick = { onOpen(PlaylistRoute(playlist.id)) },
+        target = CollectionTarget.Playlist(playlist.id),
+        modifier = modifier,
+    ) {
+        PlaylistArtwork(playlist.id, playlist.name, playlist.covers, CardWidth, footer = phonePlaylistFooter(playlist.songCount), glyph = playlistGlyph(playlist.octoNotice, null)) {
+            PlaylistCover(playlist.covers, CardWidth)
         }
     }
 }

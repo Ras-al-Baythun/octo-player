@@ -47,6 +47,7 @@ import app.winters.octo.device.Access
 import app.winters.octo.discovery.Station
 import app.winters.octo.home.EDIT_HOME
 import app.winters.octo.home.HomeSection
+import app.winters.octo.home.RecentPlay
 import app.winters.octo.ui.common.AlbumCard
 import app.winters.octo.ui.common.ArtistCircle
 import app.winters.octo.ui.common.LibrarySourceActions
@@ -71,6 +72,7 @@ fun HomeScreen(onOpen: (NavKey) -> Unit, vm: HomeViewModel = hiltViewModel()) {
     val recentlyPlayed by vm.recentlyPlayed.collectAsStateWithLifecycle()
     val mostPlayed by vm.mostPlayed.collectAsStateWithLifecycle()
     val pinned by vm.pinned.collectAsStateWithLifecycle()
+    val playlists by vm.playlists.collectAsStateWithLifecycle()
     val favouriteAlbums by vm.favouriteAlbums.collectAsStateWithLifecycle()
     val rediscovery by vm.rediscovery.collectAsStateWithLifecycle()
     val sections by vm.sections.collectAsStateWithLifecycle()
@@ -106,10 +108,10 @@ fun HomeScreen(onOpen: (NavKey) -> Unit, vm: HomeViewModel = hiltViewModel()) {
                         val title = entry.section.title
                         when (entry.section) {
                             HomeSection.Pinned -> pinnedShelf(pinned, onOpen)
-                            HomeSection.RecentlyPlayed -> shelf(title, recentlyPlayed, onOpen, onTitle = { onOpen(HistoryRoute()) })
+                            HomeSection.RecentlyPlayed -> mixedShelf(title, recentlyPlayed, onOpen, vm::playSong, onTitle = { onOpen(HistoryRoute()) })
                             HomeSection.MadeForYou -> stationShelf(title, vm.madeForYou, vm.startingStation, vm::playStation)
                             HomeSection.Stations -> stationShelf(title, vm.stations, vm.startingStation, vm::playStation)
-                            HomeSection.RecentlyAdded -> shelf(title, recent.orEmpty(), onOpen)
+                            HomeSection.RecentlyAdded -> mixedShelf(title, recent.orEmpty(), onOpen, vm::playSong)
                             HomeSection.MostPlayed -> songShelf(title, mostPlayed, vm::play, onTitle = { onOpen(HistoryRoute(mostPlayed = true)) })
                             HomeSection.FavoriteAlbums -> shelf(title, favouriteAlbums, onOpen, onTitle = { onOpen(FavouritesRoute(albums = true)) })
                             HomeSection.Charts -> songShelf(title, vm.charts, vm::play, onTitle = { onOpen(ChartsRoute) })
@@ -118,6 +120,7 @@ fun HomeScreen(onOpen: (NavKey) -> Unit, vm: HomeViewModel = hiltViewModel()) {
                             HomeSection.NotPlayedLately -> shelf(title, rediscovery.notPlayedLately, onOpen)
                             HomeSection.NeverFinished -> shelf(title, rediscovery.neverFinished, onOpen)
                             HomeSection.NeverPlayed -> shelf(title, rediscovery.neverPlayed, onOpen)
+                            HomeSection.Playlists -> playlistShelf(title, playlists, onOpen)
                         }
                     }
                     if (order != null) moving(key = "edit-home") {
@@ -169,6 +172,31 @@ private fun LazyListScope.shelf(
         ) {
             items(albums, key = { it.id }) { album ->
                 AlbumCard(album, onClick = { onOpen(AlbumRoute(album.id)) })
+            }
+        }
+    }
+}
+
+// A row of albums and songs: an album opens, a song plays.
+private fun LazyListScope.mixedShelf(
+    title: String,
+    items: List<RecentPlay<AlbumEntity, TrackEntity>>,
+    onOpen: (NavKey) -> Unit,
+    onPlay: (TrackEntity) -> Unit,
+    onTitle: (() -> Unit)? = null,
+) {
+    if (items.isEmpty()) return
+    moving(key = "title:$title") { ShelfTitle(title, onTitle) }
+    moving(key = "row:$title") {
+        LazyRow(
+            contentPadding = PaddingValues(horizontal = 20.dp),
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            items(items, key = { if (it is RecentPlay.Album) "a:${it.album.id}" else "s:${(it as RecentPlay.Song).song.id}" }) { item ->
+                when (item) {
+                    is RecentPlay.Album -> AlbumCard(item.album, onClick = { onOpen(AlbumRoute(item.album.id)) })
+                    is RecentPlay.Song -> SongCard(item.song, onClick = { onPlay(item.song) })
+                }
             }
         }
     }

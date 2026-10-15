@@ -1,5 +1,6 @@
 package app.winters.octo.offline
 
+import app.winters.octo.playback.AlbumsChosen
 import app.winters.octo.ui.family.offlineCopiesAllowed
 import app.winters.octo.ui.family.OFFLINE_COPIES_OFF
 import app.winters.octo.ui.common.Feedback
@@ -102,6 +103,7 @@ class OfflineDownloads @Inject constructor(
     // that server; files already on the phone stay.
     private val family: FamilyHub,
     private val feedback: Feedback,
+    private val albumsChosen: AlbumsChosen,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val lock = Mutex()
@@ -179,7 +181,10 @@ class OfflineDownloads @Inject constructor(
     }
 
     fun downloadAlbum(albumId: String) {
-        scope.launch { download(catalog.albumTrackIds(albumId)) }
+        scope.launch {
+            albumsChosen.add(albumId)
+            download(catalog.albumTrackIds(albumId))
+        }
     }
 
     fun downloadPlaylist(playlistId: String) {

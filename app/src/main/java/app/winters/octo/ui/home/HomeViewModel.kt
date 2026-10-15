@@ -16,7 +16,6 @@ import app.winters.octo.catalog.ArtistEntity
 import app.winters.octo.catalog.CatalogDao
 import app.winters.octo.catalog.FavouritesDao
 import app.winters.octo.catalog.TrackEntity
-import app.winters.octo.catalog.byLatestPlay
 import app.winters.octo.catalog.byPlayCount
 import app.winters.octo.device.DeviceLibrary
 import app.winters.octo.discovery.Discovery
@@ -48,6 +47,14 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
+import app.winters.octo.home.OWN_ALBUM_SONGS
+import app.winters.octo.home.RecentPlay
+import app.winters.octo.home.isOwnAlbum
+import app.winters.octo.home.recentPlays
+import app.winters.octo.playback.AlbumsChosen
+import kotlinx.coroutines.flow.Flow
+import app.winters.octo.catalog.PlaylistSummary
+import app.winters.octo.playback.PlaylistStore
 import kotlin.coroutines.cancellation.CancellationException
 
 @HiltViewModel
@@ -64,7 +71,20 @@ class HomeViewModel @Inject constructor(
     favourites: FavouritesDao,
     private val chartLists: ChartLists,
     keptFiles: KeptShelvesFiles,
+    playlistStore: PlaylistStore,
+    albumsChosen: AlbumsChosen,
 ) : ViewModel() {
+    // The albums that show as albums (see isOwnAlbum), by id.
+    private val ownAlbums: Flow<Map<String, AlbumEntity>> =
+        combine(dao.albums(), albumsChosen.ids) { albums, chosen ->
+            albums.filter { isOwnAlbum(it.songCount, it.id in chosen) }.associateBy { it.id }
+        }.flowOn(Dispatchers.Default)
+
+    // The listener's playlists, the one changed last first.
+    val playlists: StateFlow<List<PlaylistSummary>> =
+        playlistStore.playlists.map { list -> list.sortedByDescending { maxOf(it.updatedAt, it.createdAt) }.take(20) }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
     // What is pinned to the front of Home, in its order.
     val pinned: StateFlow<List<PinnedItem>> =
         pins.items.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
@@ -76,8 +96,13 @@ class HomeViewModel @Inject constructor(
 
     // Both follow the play history, here and on the server, so a song that
     // just counted shows up.
-    val recentlyPlayed: StateFlow<List<AlbumEntity>> =
-        history.albums.map { byLatestPlay(it, 20) }
+    // What was played: an album of the listener's own, else the song on its
+    // own, so a single song does not bring its whole album to Home.
+    val recentlyPlayed: StateFlow<List<RecentPlay<AlbumEntity, TrackEntity>>> =
+        combine(history.tracks, ownAlbums) { played, own ->
+            val plays = played.sortedByDescending { it.lastPlayedAt }.map { it.track to own[it.track.albumId] }
+            recentPlays(plays, own = { true }, keyOfAlbum = { it.id }, keyOfSong = { it.id }, limit = 20)
+        }.flowOn(Dispatchers.Default)
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     val mostPlayed: StateFlow<List<TrackEntity>> =
@@ -87,12 +112,17 @@ class HomeViewModel @Inject constructor(
     // Albums worth going back to, from the library's own plays: not played
     // in six months, never finished, never played.
     val rediscovery: StateFlow<Rediscovery<AlbumEntity>> =
-        combine(dao.albums(), history.tracks) { albums, played -> homeRediscovery(albums, played, System.currentTimeMillis()) }
+        combine(ownAlbums, history.tracks) { albums, played -> homeRediscovery(albums.values.toList(), played, System.currentTimeMillis()) }
             .flowOn(Dispatchers.Default)
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), Rediscovery())
 
-    val recent: StateFlow<List<AlbumEntity>?> =
-        dao.recentAlbums(20).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+    // What came into the library last: albums of the listener's own, and
+    // songs added on their own as songs.
+    val recent: StateFlow<List<RecentPlay<AlbumEntity, TrackEntity>>?> =
+        combine(dao.recentTracks(300), ownAlbums) { tracks, own ->
+            recentPlays(tracks.map { it to own[it.albumId] }, own = { true }, keyOfAlbum = { it.id }, keyOfSong = { it.id }, limit = 20)
+        }.flowOn(Dispatchers.Default)
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     // Every song in the library, phone and server together. Null until read.
     val librarySongs: StateFlow<Int?> =
@@ -263,6 +293,9 @@ class HomeViewModel @Inject constructor(
     // Plays a shelf of songs as shown, starting at the one tapped.
     fun play(tracks: List<TrackEntity>, index: Int) = playback.playTracks(tracks.map { it.id }, index)
 
+    // A song on its own, as it was played.
+    fun playSong(track: TrackEntity) = playback.playTracks(listOf(track.id))
+
     // A server without charts empties the row; one that did not answer
     // leaves it as it is.
     private fun loadCharts() {
@@ -352,7 +385,7 @@ class HomeViewModel @Inject constructor(
     }
 
     private suspend fun reroll() {
-        surprise = dao.randomAlbums(20)
+        surprise = dao.randomAlbums(60).filter { it.songCount >= OWN_ALBUM_SONGS }.take(20)
         artists = dao.randomArtists(16)
     }
 }

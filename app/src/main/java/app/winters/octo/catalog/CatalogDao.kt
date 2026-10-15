@@ -14,6 +14,9 @@ interface CatalogDao {
     @Query("SELECT * FROM album ORDER BY addedAt DESC LIMIT :limit")
     fun recentAlbums(limit: Int): Flow<List<AlbumEntity>>
 
+    @Query("SELECT * FROM track ORDER BY addedAt DESC LIMIT :limit")
+    fun recentTracks(limit: Int): Flow<List<TrackEntity>>
+
     @Query("SELECT * FROM album ORDER BY RANDOM() LIMIT :limit")
     suspend fun randomAlbums(limit: Int): List<AlbumEntity>
 

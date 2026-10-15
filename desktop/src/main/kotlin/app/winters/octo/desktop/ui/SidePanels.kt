@@ -1,5 +1,6 @@
 package app.winters.octo.desktop.ui
 
+import app.winters.octo.playback.QueueSource
 import app.winters.octo.catalog.isExplicit
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.draw.drawBehind
@@ -494,6 +495,8 @@ private fun QueueRow(
         modifier
             .fillMaxWidth()
             .height(RowHeight.Roomy)
+            // Autoplay's songs, after the listener's own, a little dimmed.
+            .alpha(if (!playing && entry.source == QueueSource.Autoplay) 0.75f else 1f)
             .hoverable(interaction)
             .onPointerEvent(PointerEventType.Press) { event ->
                 val keys = event.keyboardModifiers
@@ -622,7 +625,7 @@ private fun ColumnScope.QueueOptions(app: AppState, close: () -> Unit) {
     MenuSeparator()
     MenuRow("Autoplay", { app.setAutoplay(!autoplay) }, OctoIcons.Radio, checked = autoplay)
     Txt(
-        "When the queue ends, keep playing songs like the last one",
+        "When the queue ends, keep playing songs like the last one, new ones from outside your library too",
         OctoType.caption,
         OctoColors.TextMuted,
         Modifier.padding(start = Space.Wide + Space.Xxs, end = Space.Xl, bottom = Space.S),

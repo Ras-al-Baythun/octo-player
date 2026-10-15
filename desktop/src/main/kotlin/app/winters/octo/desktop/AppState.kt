@@ -18,6 +18,8 @@ import app.winters.octo.desktop.health.HealthModel
 import app.winters.octo.desktop.home.HomeStore
 import app.winters.octo.desktop.home.KeptShelves
 import app.winters.octo.home.HomeShelfStore
+import app.winters.octo.home.isOwnAlbum
+import app.winters.octo.subsonic.Album
 import app.winters.octo.home.homeSectionOrder
 import app.winters.octo.desktop.library.LibraryStore
 import app.winters.octo.desktop.listening.PlayReporter
@@ -810,6 +812,14 @@ class AppState(
     fun updateTable(id: String, change: (TablePrefs) -> TablePrefs) =
         settings.update { it.copy(tables = it.tables + (id to change(it.tables[id] ?: TablePrefs()))) }
 
+    fun chooseAlbum(albumId: String) {
+        if (albumId in settings.current.frame.chosenAlbums) return
+        settings.update { it.copy(frame = it.frame.copy(chosenAlbums = it.frame.chosenAlbums + albumId)) }
+    }
+
+    // Whether an album shows as one on Home and in the albums list.
+    fun showsAsAlbum(album: Album) = isOwnAlbum(album.songCount, album.id in settings.current.frame.chosenAlbums)
+
     fun isPinned(playlistId: String) = playlistId in settings.current.frame.pinnedPlaylists
 
     fun setPinned(playlistId: String, pinned: Boolean) = updateFrame { frame ->
@@ -825,6 +835,10 @@ class AppState(
         val listName = { id: String -> playlists.firstOrNull { it.id == id }?.name ?: liveLists.byId(id)?.name }
         val name = source ?: queueNameFor(navigator.current.page, songs, listName)
         player.play(songs, if (shuffle) (songs.indices).random() else start, shuffle, QueueSource.Played(name))
+        // Played from its own page: an album chosen as an album.
+        (navigator.current.page as? Page.Album)?.id?.let { albumId ->
+            if (songs.all { it.albumId == albumId }) chooseAlbum(albumId)
+        }
         jumpList?.let { list -> jumpTargetFor(navigator.current.page, songs, listName)?.let(list::played) }
     }
 

@@ -16,6 +16,8 @@ enum class HomeSection(val id: String, val title: String) {
     NotPlayedLately("notPlayedLately", "Not played in 6 months"),
     NeverFinished("neverFinished", "Albums you never finished"),
     NeverPlayed("neverPlayed", "Unplayed albums"),
+    // Last, so the orders kept before it came keep their places.
+    Playlists("playlists", "Your playlists"),
     ;
 
     companion object {

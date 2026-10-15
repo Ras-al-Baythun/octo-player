@@ -115,7 +115,10 @@ fun AlbumsPage(app: AppState, visit: Visit) {
     val grid = rememberGridState(app.navigator, visit)
     WithLibrary(app) { index ->
         val order = app.albumOrder
-        val albums = remember(index, order) { sortAlbums(index.albums, order) }
+        // Albums with only a song or two that came on their own are left out:
+        // their songs are under Songs.
+        val chosen = app.settings.current.frame.chosenAlbums
+        val albums = remember(index, order, chosen) { sortAlbums(index.albums.filter(app::showsAsAlbum), order) }
         LazyVerticalGrid(GridCells.Adaptive(GridCard), Modifier.scrollbar(grid, LocalBottomRoom.current), state = grid, contentPadding = pagePadding(LocalBottomRoom.current)) {
             header {
                 PageTitle("Albums", detail = countText(albums.size, "album")) { SortButton(app, SortList.Albums, order, app::sortAlbums) }
@@ -131,7 +134,8 @@ fun AlbumsPage(app: AppState, visit: Visit) {
 fun RecentlyAddedPage(app: AppState, visit: Visit) {
     val grid = rememberGridState(app.navigator, visit)
     WithLibrary(app) { index ->
-        val albums = remember(index) { sortAlbums(index.albums, SortOrder(AlbumSort.RecentlyAdded, descending = true)) }
+        val chosen = app.settings.current.frame.chosenAlbums
+        val albums = remember(index, chosen) { sortAlbums(index.albums.filter(app::showsAsAlbum), SortOrder(AlbumSort.RecentlyAdded, descending = true)) }
         LazyVerticalGrid(GridCells.Adaptive(GridCard), Modifier.scrollbar(grid, LocalBottomRoom.current), state = grid, contentPadding = pagePadding(LocalBottomRoom.current)) {
             header { PageTitle("Recently added", detail = if (albums.isEmpty()) null else countText(albums.size, "album") + ", newest first") }
             if (albums.isEmpty()) header { NothingHere("Nothing added yet", "Albums added to your server show here, newest first.") }

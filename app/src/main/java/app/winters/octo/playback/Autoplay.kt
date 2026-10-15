@@ -72,6 +72,7 @@ class Autoplay @Inject constructor(
         settingsJob = scope.launch {
             settings.prefs.map { it.autoplay }.distinctUntilChanged().collect { on ->
                 enabled = on
+                if (!on) removeAdded()
                 check()
             }
         }
@@ -100,6 +101,15 @@ class Autoplay @Inject constructor(
         stop()
         watching = key
         watch = scope?.launch { watchAndAdd(player, key, item.mediaId) }
+    }
+
+    // Switched off: the songs Autoplay added and that have not played yet
+    // go, so nothing it picked plays on.
+    private fun removeAdded() {
+        val player = player ?: return
+        for (i in player.mediaItemCount - 1 downTo player.currentMediaItemIndex + 1) {
+            if (player.getMediaItemAt(i).isAutoplay) player.removeMediaItem(i)
+        }
     }
 
     private fun stop() {

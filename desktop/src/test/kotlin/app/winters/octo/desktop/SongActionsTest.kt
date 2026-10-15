@@ -115,7 +115,8 @@ class SongActionsTest {
         waitFor { queueIds().size == 3 }
         assertEquals(listOf("s1", "s7", "s8"), queueIds())
         assertEquals("s1", callsTo("getSimilarSongs2").single().url.queryParameter("id"))
-        assertEquals("50", callsTo("getSimilarSongs2").single().url.queryParameter("count"))
+        // "Lots" from outside the library by default, so more suggestions are asked for.
+        assertEquals("100", callsTo("getSimilarSongs2").single().url.queryParameter("count"))
         // Octo answers in its own order of fit, since the app mixes the radio.
         assertEquals("client", callsTo("getSimilarSongs2").single().url.queryParameter("octoMix"))
     }

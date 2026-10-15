@@ -79,6 +79,9 @@ private val CurrentFill = mix(OctoColors.BackgroundTertiary, OctoColors.Accent, 
 // Songs already played sit above the current one, dimmed.
 private const val PLAYED_ALPHA = 0.5f
 
+// Autoplay's songs, after the listener's own, a little dimmed.
+private const val AUTOPLAY_ALPHA = 0.75f
+
 // The queue sheet over the player, a long working list, then the menu of
 // one of its songs and the name form for saving the queue as a playlist,
 // each a glass card floating over it. `backdrop` is what the cards frost.
@@ -95,10 +98,12 @@ fun QueueSheets(model: PlayerViewModel, shuffle: Boolean, visible: Boolean, onDi
     GlassSheet(visible = visible, onDismiss = onDismiss) {
         val played by model.played.collectAsStateWithLifecycle()
         val upNext by model.upNext.collectAsStateWithLifecycle()
+        val prefs by model.prefs.collectAsStateWithLifecycle()
         QueueSheet(
             played = played,
             queue = upNext,
             shuffle = shuffle,
+            autoplay = prefs.autoplay,
             actions = QueueActions(
                 move = model::moveInQueue,
                 remove = model::removeFromQueue,
@@ -110,6 +115,7 @@ fun QueueSheets(model: PlayerViewModel, shuffle: Boolean, visible: Boolean, onDi
                 clear = model::clearQueue,
                 removePlayed = model::removePlayed,
                 save = { saving = true },
+                autoplay = model::setAutoplay,
             ),
         )
     }
@@ -151,6 +157,7 @@ class QueueActions(
     val clear: () -> Unit,
     val removePlayed: () -> Unit,
     val save: () -> Unit,
+    val autoplay: (Boolean) -> Unit,
 )
 
 // The "Up next" sheet: songs already played, dimmed, then the song that is
@@ -162,7 +169,7 @@ class QueueActions(
 // off while shuffle is on. Tools along the top clear the queue, take out
 // the songs played, save it as a playlist, or scroll back to the song on.
 @Composable
-fun ColumnScope.QueueSheet(played: List<QueueEntry>, queue: List<QueueEntry>, shuffle: Boolean, actions: QueueActions) {
+fun ColumnScope.QueueSheet(played: List<QueueEntry>, queue: List<QueueEntry>, shuffle: Boolean, autoplay: Boolean, actions: QueueActions) {
     val current = queue.firstOrNull()
     val upcoming = queue.drop(1)
     // The rows as drawn. A drag moves them at once; the queue catches up on drop.
@@ -195,6 +202,9 @@ fun ColumnScope.QueueSheet(played: List<QueueEntry>, queue: List<QueueEntry>, sh
         QueueTool("Clear", enabled = upcoming.isNotEmpty() || played.isNotEmpty(), onClick = actions.clear)
         QueueTool("Remove played", enabled = played.isNotEmpty(), onClick = actions.removePlayed)
         QueueTool("Save as playlist", enabled = current != null, onClick = actions.save)
+        // When the queue runs out, songs like it keep playing, from outside
+        // the library too. Remembered, as the setting in Playback.
+        QueueTool(if (autoplay) "Autoplay: on" else "Autoplay: off", enabled = true, onClick = { actions.autoplay(!autoplay) })
     }
     LazyColumn(
         Modifier.weight(1f, fill = false),
@@ -276,6 +286,7 @@ fun ColumnScope.QueueSheet(played: List<QueueEntry>, queue: List<QueueEntry>, sh
                             Modifier
                                 .then(if (dragging) Modifier.elevation3(RowShape) else Modifier)
                                 .background(RowFill, RowShape)
+                                .alpha(if (entry.autoplay) AUTOPLAY_ALPHA else 1f)
                                 .combinedClickable(
                                     onClickLabel = "Play",
                                     onLongClickLabel = "Song options",

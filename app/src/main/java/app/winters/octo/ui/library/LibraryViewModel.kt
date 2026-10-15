@@ -34,6 +34,8 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import app.winters.octo.home.isOwnAlbum
+import app.winters.octo.playback.AlbumsChosen
 
 @HiltViewModel
 class LibraryViewModel @Inject constructor(
@@ -42,15 +44,22 @@ class LibraryViewModel @Inject constructor(
     private val playback: PlaybackConnection,
     user: UserDao,
     history: PlayHistory,
+    albumsChosen: AlbumsChosen,
 ) : ViewModel() {
-    // The newest albums, for the front page.
+    // The newest albums of the listener's own (see isOwnAlbum), for the front page.
     val recent: StateFlow<List<AlbumEntity>> =
-        dao.recentAlbums(20).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+        combine(dao.recentAlbums(80), albumsChosen.ids) { albums, chosen -> albums.filter { isOwnAlbum(it.songCount, it.id in chosen) }.take(20) }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     // Each list in its chosen order. Null until the first read, so a loading
     // moment is not shown as empty.
+    // Albums with only a song or two that came on their own are left out:
+    // their songs are under Songs.
     val albums: StateFlow<Sorted<AlbumEntity>?> =
-        sorted.albums(SortList.Albums).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+        combine(sorted.albums(SortList.Albums), albumsChosen.ids) { list, chosen ->
+            val keep = list.items.indices.filter { isOwnAlbum(list.items[it].songCount, list.items[it].id in chosen) }
+            Sorted(keep.map(list.items::get), list.order, list.headings?.let { h -> keep.map(h::get) })
+        }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
     val artists: StateFlow<Sorted<ArtistEntity>?> =
         sorted.artists().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
     val songs: StateFlow<Sorted<TrackEntity>?> =
