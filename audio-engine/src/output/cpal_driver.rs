@@ -59,8 +59,12 @@ fn device_failure(e: impl std::fmt::Display) -> Failure {
 impl Driver for CpalDriver {
     fn devices(&mut self) -> Vec<OutputDevice> {
         let default_id = self.host.default_output_device().and_then(|d| d.id().ok()).map(|i| i.to_string());
+        let shared = sound_server_running();
         match self.host.output_devices() {
-            Ok(devices) => devices.filter_map(|d| Self::describe(&d, default_id.as_deref())).collect(),
+            Ok(devices) => devices
+                .filter_map(|d| Self::describe(&d, default_id.as_deref()))
+                .filter(|d| !(shared && takes_the_card(&d.id)))
+                .collect(),
             Err(e) => {
                 log::warn!("could not list devices: {e}");
                 Vec::new()
@@ -80,6 +84,15 @@ impl Driver for CpalDriver {
         make: &mut dyn FnMut(u32, u16) -> Renderer,
     ) -> Result<OpenedOutput, Failure> {
         self.close();
+        // A card opened directly while a sound server runs silences every
+        // other program, Octo's own pause included: the default instead.
+        let id = id.filter(|id| {
+            let exclusive = takes_the_card(id) && sound_server_running();
+            if exclusive {
+                log::warn!("{id} would take the sound card from the sound server; using the default");
+            }
+            !exclusive
+        });
         let device = match id {
             Some(id) => {
                 self.find(id).ok_or_else(|| Failure::new(ErrorKind::Device, format!("no device {id}")))?
@@ -173,6 +186,49 @@ where
     )
 }
 
+// Whether `id` names one of a card's own ALSA devices (hw:, plughw:,
+// front:, dmix: and the like) rather than a sound server's. Opening one
+// takes the card: while it is open, even paused, PipeWire or PulseAudio
+// cannot, and nothing else on the computer makes a sound.
+fn takes_the_card(id: &str) -> bool {
+    const CARD_PCMS: &[&str] = &[
+        "hw",
+        "plughw",
+        "front",
+        "rear",
+        "center_lfe",
+        "side",
+        "surround21",
+        "surround40",
+        "surround41",
+        "surround50",
+        "surround51",
+        "surround71",
+        "iec958",
+        "spdif",
+        "hdmi",
+        "dmix",
+        "dsnoop",
+        "sysdefault",
+        "usbstream",
+    ];
+    let pcm = id.strip_prefix("alsa:").unwrap_or(id);
+    let name = pcm.split(':').next().unwrap_or(pcm);
+    pcm.contains(':') && CARD_PCMS.contains(&name)
+}
+
+// Whether PipeWire or PulseAudio is serving this session, by its socket.
+fn sound_server_running() -> bool {
+    if !cfg!(target_os = "linux") {
+        return false;
+    }
+    let Some(runtime) = std::env::var_os("XDG_RUNTIME_DIR") else {
+        return false;
+    };
+    let runtime = std::path::Path::new(&runtime);
+    runtime.join("pipewire-0").exists() || runtime.join("pulse").join("native").exists()
+}
+
 // What a stream error means for the device. Only a device or host that is
 // gone, or a stream that must be rebuilt, loses it; anything else is a
 // hiccup the stream carries on through. (The PulseAudio bridge on Linux
@@ -191,6 +247,20 @@ fn device_event(kind: cpal::ErrorKind, why: impl FnOnce() -> String) -> Option<D
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_cards_own_devices_take_it_and_a_servers_do_not() {
+        assert!(takes_the_card("alsa:hw:CARD=sofhdadsp,DEV=0"));
+        assert!(takes_the_card("alsa:plughw:CARD=J3C,DEV=0"));
+        assert!(takes_the_card("alsa:dmix:CARD=sofhdadsp,DEV=0"));
+        assert!(takes_the_card("alsa:sysdefault:CARD=sofhdadsp"));
+        assert!(takes_the_card("hw:0,0"));
+        assert!(!takes_the_card("alsa:default"));
+        assert!(!takes_the_card("alsa:pipewire"));
+        assert!(!takes_the_card("alsa:pulse"));
+        // Without a colon it is a name of its own, not a card's device.
+        assert!(!takes_the_card("alsa:hdmi"));
+    }
 
     #[test]
     fn only_a_gone_device_is_lost() {
