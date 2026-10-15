@@ -101,6 +101,37 @@ class AccountsTest {
     }
 
     @Test
+    fun theNextRunLearnsWhatTheServerAddedSince() = runTest {
+        octoServer()
+        accounts.signIn(server.address, "winters", "correct horse")
+        server.answer("getOpenSubsonicExtensions", """"openSubsonicExtensions":[{"name":"songLyrics","versions":[1,2]},{"name":"octoAcquisitions","versions":[1]},{"name":"octoPreview","versions":[1,2]}]""", type = "octo")
+        val later = Accounts(SettingsStore(settingsFile), secrets, OkHttpClient())
+        val restored = later.restore()!!
+        assertFalse("restoring asks nothing of the server", restored.supports("octoPreview", 2))
+        val fresh = later.refreshFacts(restored)
+        assertNotNull("the server lists more now", fresh)
+        assertTrue(fresh!!.supports("octoPreview", 2))
+        assertTrue(fresh.supports("songLyrics", 2))
+        assertTrue("and the settings know it for next time", later.active!!.extensions.contains("octoPreview:2"))
+        assertNull("asked again, nothing has changed", later.refreshFacts(fresh))
+    }
+
+    @Test
+    fun aServerThatCannotBeAskedKeepsItsSavedFacts() = runTest {
+        octoServer()
+        accounts.signIn(server.address, "winters", "correct horse")
+        val later = Accounts(SettingsStore(settingsFile), secrets, OkHttpClient())
+        val restored = later.restore()!!
+        server.fail("ping", 0, "not now")
+        assertNull(later.refreshFacts(restored))
+        assertTrue(later.active!!.extensions.contains("songLyrics:2"))
+        server.answer("ping", type = "octo")
+        server.fail("getOpenSubsonicExtensions", 0, "not now")
+        assertNull("without the list, the saved one stands", later.refreshFacts(restored))
+        assertTrue(later.active!!.extensions.contains("songLyrics:2"))
+    }
+
+    @Test
     fun withoutTheStoredPasswordThereIsNothingToRestore() = runTest {
         octoServer()
         accounts.signIn(server.address, "winters", "correct horse")

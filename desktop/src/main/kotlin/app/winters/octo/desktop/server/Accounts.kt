@@ -375,6 +375,27 @@ class Accounts(
         return activate(saved, password, headers)
     }
 
+    // Asks the server in use again what it is and which extensions it
+    // lists, as signing in does, so a server updated since then (an Octo
+    // that learned a new extension) is known without signing out and in
+    // again. The saved facts are brought up to date, and the connection
+    // comes back with them when any changed; null when nothing changed,
+    // when the server could not be asked, or when it is not a kept server.
+    suspend fun refreshFacts(connection: Connection): Connection? {
+        val kept = find(connection.server.id) ?: return null
+        val info = runCatching { connection.client.ping() }.getOrNull() ?: return null
+        val extensions = if (info.openSubsonic) runCatching { connection.client.extensions() }.getOrNull() ?: return null else emptyList()
+        val fresh = kept.copy(
+            serverType = info.type ?: kept.serverType,
+            serverVersion = info.serverVersion ?: kept.serverVersion,
+            openSubsonic = info.openSubsonic,
+            extensions = ServerFacts(info, extensions).extensionKeys,
+        )
+        if (fresh == kept && fresh.extensions == connection.server.extensions) return null
+        settings.update { s -> s.copy(servers = s.servers.map { if (it.id == kept.id) fresh else it }) }
+        return Connection(connection.client, fresh, connection.headers)
+    }
+
     // The server to fill the sign-in page with: the one in use, else the one
     // signed out of last, else the first kept.
     val last: SavedServer? get() = active ?: find(recent) ?: servers.firstOrNull()

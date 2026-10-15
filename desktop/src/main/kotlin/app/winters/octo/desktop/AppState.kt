@@ -385,7 +385,22 @@ class AppState(
         }
         queueSync.start()
         watchProblems()
-        restored?.let(::signedIn)
+        restored?.let {
+            signedIn(it)
+            refreshFacts(it)
+        }
+    }
+
+    // The restored server is asked again what it is and which extensions
+    // it lists, as signing in asks, so one updated since the last sign-in
+    // is seen without signing out and in again. When anything changed, the
+    // pages read it afresh through the fresh connection; a server left
+    // meanwhile is let be.
+    private fun refreshFacts(restored: Connection) {
+        scope.launch {
+            val fresh = accounts.refreshFacts(restored) ?: return@launch
+            if (connection?.server?.id == fresh.server.id) useConnection(fresh)
+        }
     }
 
     // A song that could not play says so in the one notice line, and its
