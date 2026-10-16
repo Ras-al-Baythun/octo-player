@@ -1,7 +1,9 @@
 package app.winters.octo.desktop.system
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class TrayAndNoticesTest {
@@ -63,6 +65,41 @@ class TrayAndNoticesTest {
         assertNull("turned off", notices.noticeFor(now(4), enabled = false, windowInFront = false))
         assertNull(notices.noticeFor(null, enabled = true, windowInFront = false))
         assertEquals("Title" to "Album", notices.noticeFor(now(5, artist = ""), enabled = true, windowInFront = false))
+    }
+
+    @Test
+    fun theTrayIconGoesBackInWhenTheTrayComesBack() {
+        var supported = true
+        var adds = 0
+        var removes = 0
+        val keeper = TrayKeeper({ supported }, { adds++ }, { removes++ })
+        keeper.sync()
+        keeper.sync()
+        assertEquals("put in once", 1, adds)
+        assertTrue(keeper.added)
+        supported = false
+        keeper.sync()
+        assertFalse("the tray went away", keeper.added)
+        supported = true
+        keeper.sync()
+        assertEquals("back in", 2, adds)
+        keeper.drop()
+        assertEquals(1, removes)
+        assertFalse(keeper.added)
+    }
+
+    @Test
+    fun nothingTheTrayThrowsGetsOut() {
+        var adds = 0
+        val keeper = TrayKeeper({ true }, { adds++; throw UnsupportedOperationException("no tray") }, { throw UnsupportedOperationException("no tray") })
+        keeper.sync()
+        assertFalse(keeper.added)
+        keeper.sync()
+        assertEquals("tried again", 2, adds)
+        TrayKeeper({ throw UnsupportedOperationException("no tray") }, {}, {}).sync()
+        val added = TrayKeeper({ true }, {}, { throw IllegalStateException("gone") }).apply { sync() }
+        added.drop()
+        assertFalse(added.added)
     }
 
     @Test

@@ -386,7 +386,7 @@ class SystemIntegration(
         val now = nowPlayingOf(state)
         val icon = trayIcon ?: windowIcon
         if (trayAvailable && icon != null) {
-            OctoTray(icon, trayState, now, miniPlayerOpen, ::onTray)
+            OctoTray(icon, trayState, now, miniPlayerOpen, guarded = os == DesktopOs.Linux, ::onTray)
         }
         if (miniPlayerOpen) {
             val spot = placeMiniPlayer(app.settings.current.system.miniPlayer, screenAreas())

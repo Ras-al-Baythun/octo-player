@@ -88,6 +88,7 @@ import java.awt.event.WindowAdapter
 import java.awt.event.WindowEvent
 import java.io.File
 import javax.swing.SwingUtilities
+import kotlin.system.exitProcess
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
@@ -149,6 +150,14 @@ fun main(args: Array<String>) {
     val inTray = startsInTray(args.toList())
     // The opening comes in quietly when the listener asked for calm motion.
     val calmStart = settings.current.appearance.calmMotion
+    // Should the window's composition ever fail, the app's other threads
+    // would keep a windowless Octo alive that every later launch hands over
+    // to; ending here lets the next launch start afresh.
+    Thread.currentThread().setUncaughtExceptionHandler { _, failure ->
+        failure.printStackTrace()
+        runCatching { settings.flush() }
+        exitProcess(1)
+    }
 
     application {
         // The app, once made; until then the window shows its first frame.
@@ -328,10 +337,12 @@ fun main(args: Array<String>) {
                         }
                     })
                     system.focusWindow = {
-                        windowState.isMinimized = false
-                        window.isVisible = true
-                        window.toFront()
-                        window.requestFocus()
+                        runCatching {
+                            windowState.isMinimized = false
+                            window.isVisible = true
+                            window.toFront()
+                            window.requestFocus()
+                        }
                     }
                 }
             }
