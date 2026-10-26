@@ -34,7 +34,7 @@ data class OfflinePrefs(
     val cacheSize: CacheSize = CacheSize.Gb2,
     // How many songs ahead in the queue to fetch while one plays.
     val prefetchWifi: Int = 3,
-    val prefetchMobile: Int = 1,
+    val prefetchMobile: Int = 3,
     // Downloads come as the server's file unless a smaller MP3 is chosen.
     val downloadQuality: StreamQuality = StreamQuality.Original,
     val wifiOnly: Boolean = true,

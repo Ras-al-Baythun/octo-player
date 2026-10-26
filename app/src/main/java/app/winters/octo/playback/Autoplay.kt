@@ -2,6 +2,7 @@ package app.winters.octo.playback
 
 import android.util.Log
 import androidx.annotation.OptIn
+import androidx.media3.common.C
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import app.winters.octo.catalog.CatalogDao
@@ -11,11 +12,11 @@ import app.winters.octo.catalog.UserDao
 import app.winters.octo.catalog.isFind
 import app.winters.octo.catalog.searchKey
 import app.winters.octo.discovery.asTrack
+import app.winters.octo.offline.Prefetcher
 import app.winters.octo.output.OutputSwitch
 import app.winters.octo.player.PlayerSettings
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -26,24 +27,18 @@ import javax.inject.Singleton
 // Songs played this recently are not picked again.
 private const val RECENT_PLAYS = 50
 
-// How near the end of the last song the new songs go in: early enough for
-// the server to answer and for a crossfade to load the next one.
-private const val LEAD_MS = 20_000L
-private const val LOAD_AHEAD_MS = 15_000L
+// Whether it is time to add songs: Autoplay is on, repeat is off, and the
+// queue is about to run short, with `upcoming` songs left after the one on
+// and `ahead` songs to be saved ahead (see autoplayWanted).
+fun autoplayDue(enabled: Boolean, repeatMode: Int, upcoming: Int, ahead: Int): Boolean =
+    enabled && repeatMode == Player.REPEAT_MODE_OFF && autoplayWanted(upcoming, ahead)
 
-// How often to look at how far into the last song the player is.
-private const val WATCH_EVERY_MS = 1_000L
-
-// Whether it is time to add songs: Autoplay is on, repeat is off, nothing
-// comes after the song that is on, and it is within `leadMs` of its end.
-fun autoplayDue(enabled: Boolean, repeatMode: Int, hasNext: Boolean, remainingMs: Long, leadMs: Long): Boolean =
-    enabled && repeatMode == Player.REPEAT_MODE_OFF && !hasNext && remainingMs <= leadMs
-
-// Keeps music playing when the queue runs out. Near the end of the last
-// song, with repeat off, it adds songs like it, marked as Autoplay's so the
-// queue can tell them from the listener's own. The service attaches its
-// player and calls `check` whenever the song, the queue, repeat or playing
-// changes. Turning the setting off stops it adding.
+// Keeps music playing when the queue runs out. Once the third song from the
+// end is on (or more, when more are saved ahead), with repeat off, it adds
+// songs like it, marked as Autoplay's so the queue can tell them from the
+// listener's own; early, so they are saved ahead before a connection drops.
+// The service attaches its player and calls `check` whenever the song, the
+// queue, repeat or playing changes. Turning the setting off stops it adding.
 @OptIn(UnstableApi::class)
 @Singleton
 class Autoplay @Inject constructor(
@@ -53,13 +48,14 @@ class Autoplay @Inject constructor(
     private val online: OnlineDao,
     private val user: UserDao,
     private val playable: PlayableSongs,
+    private val prefetch: Prefetcher,
 ) {
     private var player: OutputSwitch? = null
     private var scope: CoroutineScope? = null
     private var enabled = false
     private var settingsJob: Job? = null
 
-    // Watches the last song until it is time, then adds; for one entry at a time.
+    // Adds after one entry at a time.
     private var watch: Job? = null
     private var watching: String? = null
 
@@ -89,10 +85,10 @@ class Autoplay @Inject constructor(
         val player = player ?: return
         val item = player.currentMediaItem
         val key = item?.entryId
-        val last = enabled && key != null && key != doneFor && !isRadio(item.mediaId) &&
-            player.repeatMode == Player.REPEAT_MODE_OFF && !player.hasNextMediaItem() &&
+        val due = key != null && key != doneFor && !isRadio(item.mediaId) &&
+            autoplayDue(enabled, player.repeatMode, player.upcomingCount(), prefetch.aheadCount()) &&
             (player.isPlaying || player.playbackState == Player.STATE_ENDED)
-        if (!last) {
+        if (!due) {
             // Paused, repeat on, songs added, or switched off: stand down.
             stop()
             return
@@ -100,7 +96,7 @@ class Autoplay @Inject constructor(
         if (watch?.isActive == true && watching == key) return
         stop()
         watching = key
-        watch = scope?.launch { watchAndAdd(player, key, item.mediaId) }
+        watch = scope?.launch { add(player, key, item.mediaId) }
     }
 
     // Switched off: the songs Autoplay added and that have not played yet
@@ -118,13 +114,7 @@ class Autoplay @Inject constructor(
         watching = null
     }
 
-    private suspend fun watchAndAdd(player: OutputSwitch, key: String, seedId: String) {
-        // A planned blend can start up to LONGEST_EARLY_EXIT_MS before the end.
-        val early = if (player.crossfadeMs > 0) LONGEST_EARLY_EXIT_MS else 0
-        val lead = maxOf(LEAD_MS, player.crossfadeMs + early + LOAD_AHEAD_MS)
-        while (!autoplayDue(enabled, player.repeatMode, player.hasNextMediaItem(), player.remainingMs(), lead)) {
-            delay(WATCH_EVERY_MS)
-        }
+    private suspend fun add(player: OutputSwitch, key: String, seedId: String) {
         val entries = List(player.mediaItemCount) { player.getMediaItemAt(it) }
         val queued = entries.map { it.mediaId }
         // The listener's own songs keep Autoplay near their taste.
@@ -136,8 +126,10 @@ class Autoplay @Inject constructor(
             Log.i("Octo", "autoplay: nothing to add")
             return
         }
-        // Only if the song is still the last one and the setting still on.
-        if (!enabled || player.currentMediaItem?.entryId != key || player.hasNextMediaItem()) return
+        // Only if the song is still on, the queue still short and the setting still on.
+        if (player.currentMediaItem?.entryId != key ||
+            !autoplayDue(enabled, player.repeatMode, player.upcomingCount(), prefetch.aheadCount())
+        ) return
         val first = player.mediaItemCount
         player.addMediaItems(first, items)
         // The song already ended while the server answered: carry on.
@@ -176,9 +168,19 @@ class Autoplay @Inject constructor(
     private suspend fun sameGenre(seed: TrackEntity): List<String> =
         if (seed.genre.isBlank()) emptyList() else catalog.genreTrackIds(seed.genre)
 
-    // How long until the song ends, in real time at the current speed.
-    private fun OutputSwitch.remainingMs(): Long {
-        val length = duration.takeIf { it > 0 } ?: currentMediaItem?.mediaMetadata?.durationMs ?: return 0
-        return ((length - currentPosition).coerceAtLeast(0) / playbackParameters.speed).toLong()
+    // How many songs play after the one on, in play order, counted only as
+    // far as Autoplay could want.
+    private fun OutputSwitch.upcomingCount(): Int {
+        val timeline = currentTimeline
+        if (timeline.isEmpty) return 0
+        val most = maxOf(AUTOPLAY_MIN_AHEAD, prefetch.aheadCount())
+        var index = currentMediaItemIndex
+        var count = 0
+        while (count < most) {
+            index = timeline.getNextWindowIndex(index, Player.REPEAT_MODE_OFF, shuffleModeEnabled)
+            if (index == C.INDEX_UNSET) break
+            count++
+        }
+        return count
     }
 }

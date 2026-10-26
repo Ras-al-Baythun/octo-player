@@ -21,3 +21,14 @@ fun autoplayPicks(
     if (fromServer.isNotEmpty()) return fromServer.take(limit)
     return (sameArtist + sameGenre).filter { it !in exclude }.distinct().take(limit)
 }
+
+// How many songs Autoplay keeps ready after the one playing, at the least:
+// it adds once the third song from the end of the queue is on, so a dropped
+// connection never finds the queue about to run out.
+const val AUTOPLAY_MIN_AHEAD = 3
+
+// Whether Autoplay should add songs now, with `upcoming` songs left after
+// the one playing and `ahead` songs to be saved ahead: it keeps at least as
+// many ready as are saved, so they can be. A single song played starts it
+// at once.
+fun autoplayWanted(upcoming: Int, ahead: Int): Boolean = upcoming < maxOf(AUTOPLAY_MIN_AHEAD, ahead)

@@ -55,6 +55,7 @@ import app.winters.octo.covers.playlistCoverStyleName
 import app.winters.octo.desktop.settings.AmbienceStyle
 import app.winters.octo.desktop.settings.AppSettings
 import app.winters.octo.desktop.settings.Appearance
+import app.winters.octo.desktop.settings.SONGS_AHEAD_MAX
 import app.winters.octo.desktop.settings.WashPrefs
 import app.winters.octo.desktop.system.SystemRows
 import app.winters.octo.desktop.system.TaskbarAndStartupRows
@@ -195,6 +196,16 @@ private fun PlaybackRows(app: AppState, settings: AppSettings) {
         ChoiceRow(START_AFTER_SETTING, START_AFTER_HELP, StartAfter.entries, settings.playback.startAfter, { it.label }) { wait ->
             app.settings.update { it.copy(playback = it.playback.copy(startAfter = wait)) }
         }
+        val ahead = settings.playback.songsAhead.coerceIn(0, SONGS_AHEAD_MAX)
+        SliderRow(
+            "Songs saved ahead",
+            "The next songs are saved on this computer so they play on without a connection. Autoplay keeps at least this many ready.",
+            if (ahead == 0) "Off" else "$ahead",
+            ahead / SONGS_AHEAD_MAX.toFloat(),
+            { x -> app.settings.update { it.copy(playback = it.playback.copy(songsAhead = (x * SONGS_AHEAD_MAX).roundToInt())) } },
+            live = false,
+            wheelStep = 1f / SONGS_AHEAD_MAX,
+        )
         SwitchRow(LIBRARY_ONLY_SETTING, LIBRARY_ONLY_HELP, settings.libraryOnly) { on -> app.setLibraryOnly(on) }
         ActionRow("Equalizer, loudness, crossfade and speed", null, "Open Sound", { app.navigator.go(Page.Sound) })
     }

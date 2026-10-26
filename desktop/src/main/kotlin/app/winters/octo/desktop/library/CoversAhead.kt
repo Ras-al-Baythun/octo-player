@@ -17,7 +17,12 @@ import kotlinx.coroutines.flow.map
 
 // The covers of the song on and the next ones in play order (shuffled or
 // not, wrapping round with repeat all), the song on first.
-fun coversAhead(state: PlayerState, count: Int = COVERS_AHEAD): List<String> {
+fun coversAhead(state: PlayerState, count: Int = COVERS_AHEAD): List<String> =
+    (listOfNotNull(state.current) + entriesAhead(state, count)).mapNotNull { it.song.coverArt }.distinct()
+
+// The next `count` entries in play order after the song on (shuffled or
+// not, wrapping round with repeat all).
+fun entriesAhead(state: PlayerState, count: Int): List<QueueEntry> {
     val current = state.current
     val played = state.played
     val upcoming = state.upcoming
@@ -32,8 +37,7 @@ fun coversAhead(state: PlayerState, count: Int = COVERS_AHEAD): List<String> {
         }
     }
     val at = if (current != null) played.size else -1
-    val next = nextInPlayOrder(order, at, state.repeat == RepeatMode.All, count)
-    return (listOfNotNull(current) + next).mapNotNull { it.song.coverArt }.distinct()
+    return nextInPlayOrder(order, at, state.repeat == RepeatMode.All, count)
 }
 
 // Keeps the covers of the song on and the next ones ready while it runs, so

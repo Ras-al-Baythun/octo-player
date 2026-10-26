@@ -216,6 +216,16 @@ class EnginePlayer(
         return true
     }
 
+    // A song's address changed (saved ahead on this computer): the engine
+    // gets the queue again, the song on carrying on untouched.
+    fun refreshSources() {
+        synchronized(lock) {
+            val current = queue.currentEntry ?: return
+            if (current.key !in mirror) return
+            engine.replaceQueue(inPlayOrder().map { queueItem(it, sources) }, mirror.indexOf(current.key))
+        }
+    }
+
     // ---- Transport ----
 
     override fun play(songs: List<Song>, start: Int, shuffle: Boolean, source: QueueSource) {

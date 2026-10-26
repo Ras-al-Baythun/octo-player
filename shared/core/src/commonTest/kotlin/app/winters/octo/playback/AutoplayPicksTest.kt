@@ -1,6 +1,7 @@
 package app.winters.octo.playback
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -59,5 +60,15 @@ class AutoplayPicksTest {
     @Test
     fun nothingToPickIsNothing() {
         assertTrue(autoplayPicks(emptyList(), listOf("seed"), emptyList(), setOf("seed")).isEmpty())
+    }
+
+    @Test
+    fun itAddsOnceTheThirdSongFromTheEndIsOn() {
+        assertTrue("a single song played", autoplayWanted(upcoming = 0, ahead = 3))
+        assertTrue("the third from the end", autoplayWanted(upcoming = 2, ahead = 3))
+        assertFalse("three still to come", autoplayWanted(upcoming = 3, ahead = 3))
+        assertTrue("fewer saved ahead still keeps three ready", autoplayWanted(upcoming = 2, ahead = 1))
+        assertTrue("more saved ahead keeps more ready", autoplayWanted(upcoming = 4, ahead = 5))
+        assertFalse(autoplayWanted(upcoming = 5, ahead = 5))
     }
 }

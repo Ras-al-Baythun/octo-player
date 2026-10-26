@@ -3,6 +3,8 @@ package app.winters.octo.desktop.audio
 import app.winters.octo.desktop.player.DEFAULT_OUTPUT
 import app.winters.octo.desktop.player.DesktopPlayer
 import app.winters.octo.desktop.player.SilentPlayer
+import app.winters.octo.desktop.offline.SongsAhead
+import app.winters.octo.desktop.settings.SONGS_AHEAD_MAX
 import app.winters.octo.desktop.settings.SettingsStore
 import app.winters.octo.playback.TransitionProfiles
 import app.winters.octo.subsonic.SubsonicClient
@@ -33,6 +35,10 @@ fun openPlayer(
     // What streams ask for, and a copy kept on this computer for a song.
     params: () -> Map<String, String> = { mapOf("format" to "raw") },
     kept: (String) -> java.io.File? = { null },
+    // Where the next songs are saved ahead, and how they are fetched; none
+    // saved without.
+    ahead: java.io.File? = null,
+    http: () -> okhttp3.OkHttpClient = { okhttp3.OkHttpClient() },
     // The engine, opened beforehand off the window's thread (Startup), or
     // why it would not open.
     opened: Result<AudioEngine> = runCatching { NativeAudioEngine.open() },
@@ -44,8 +50,15 @@ fun openPlayer(
         keepStartAfter(engine, settings, scope)
         val device = playback.outputDevice?.takeUnless { it == DEFAULT_OUTPUT }
         val profiles = EngineProfiles(scope, ServerTransitions(client, transitions)::current, { serverSongId(it, landed) }, engine::setSongProfile)
-        val sources = LocalOrServer(ServerSongs(headers, landed, params, client), kept)
+        val server = ServerSongs(headers, landed, params, client)
+        val saver = ahead?.let { SongsAhead(it, server::addressOf, { song -> streamSuffix(song, params()) }, http) }
+        val sources = LocalOrServer(server) { id -> kept(id) ?: saver?.fileFor(id) }
         val player = EnginePlayer(engine, sources, volume = playback.volume, device = device, profiles = profiles)
+        saver?.let {
+            scope.launch {
+                it.follow(player, { settings.current.playback.songsAhead.coerceIn(0, SONGS_AHEAD_MAX) }, { id -> kept(id) != null }, player::refreshSources)
+            }
+        }
         OpenedPlayer(player, null)
     } catch (e: Throwable) {
         if (e is VirtualMachineError) throw e
@@ -54,6 +67,14 @@ fun openPlayer(
             "Octo couldn't start its sound engine (${e.message ?: e.javaClass.simpleName}), so songs play silently.",
         )
     }
+}
+
+// The ending of a song's file as the stream sends it: Opus when the app
+// asks for it, else the file as it is.
+fun streamSuffix(song: app.winters.octo.subsonic.Song, params: Map<String, String>): String = when (params["format"]) {
+    "opus" -> "opus"
+    "mp3" -> "mp3"
+    else -> song.suffix?.takeIf { it.isNotBlank() } ?: "audio"
 }
 
 // The kept transition profiles of the server signed in now, while it hands

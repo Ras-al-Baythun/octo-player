@@ -64,6 +64,7 @@ import app.winters.octo.desktop.server.Accounts
 import app.winters.octo.desktop.server.Connection
 import app.winters.octo.desktop.server.ServerFactsModel
 import app.winters.octo.desktop.server.SwitchOutcome
+import app.winters.octo.desktop.settings.SONGS_AHEAD_MAX
 import app.winters.octo.desktop.settings.SavedServer
 import app.winters.octo.desktop.settings.key
 import app.winters.octo.desktop.settings.name
@@ -358,6 +359,7 @@ class AppState(
                 )
             }
         },
+        ahead = { settings.current.playback.songsAhead.coerceIn(0, SONGS_AHEAD_MAX) },
     ).also { it.start() }
 
     // ---- End of the queue's edits ----

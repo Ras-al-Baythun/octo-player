@@ -305,6 +305,10 @@ data class WashPrefs(
     val contrast: Float = 1.3f,
 )
 
+// How many songs are saved ahead, at most and at first.
+const val SONGS_AHEAD_MAX = 10
+const val SONGS_AHEAD_DEFAULT = 3
+
 // Playback settings, read by the audio engine's player.
 @Serializable
 data class PlaybackPrefs(
@@ -328,6 +332,10 @@ data class PlaybackPrefs(
     // When the queue runs out, songs like the last one keep playing. On by
     // default, as on the phone.
     val autoplay: Boolean = true,
+    // How many of the next songs are saved on this computer ahead of
+    // playing, so they play on when the connection drops (0 to 10, 0 is
+    // off); Autoplay keeps at least as many ready.
+    val songsAhead: Int = SONGS_AHEAD_DEFAULT,
     // How songs stream when this app picks the quality: the file as it is,
     // or Opus at a lower bitrate (a StreamQuality name); and how much of a
     // stream is ready before it starts.

@@ -225,6 +225,8 @@ fun main(args: Array<String>) {
                 transitions = { made?.connection?.supports(OCTO_TRANSITIONS) == true },
                 params = { made?.streamParams() ?: mapOf("format" to "raw") },
                 kept = { id -> made?.offline?.localFile(id) },
+                ahead = File(places.cache, "ahead"),
+                http = { parts.http },
                 opened = parts.engine,
             )
             val app = AppState(settings, parts.accounts, parts.http, scope, os, player.player, restored = parts.restored, listeningRoot = places.config, updates = parts.updates, homeShelves = File(places.cache, "home")).also {

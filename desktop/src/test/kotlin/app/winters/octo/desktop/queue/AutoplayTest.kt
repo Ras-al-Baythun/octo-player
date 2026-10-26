@@ -20,20 +20,20 @@ import kotlin.random.Random
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class AutoplayTest {
-    // Two songs of 100 seconds each.
-    private val songs = (1..2).map { Song("s$it", "Song $it", duration = 100) }
+    // Four songs of 100 seconds each.
+    private val songs = (1..4).map { Song("s$it", "Song $it", duration = 100) }
     private val more = listOf(Song("m1", "More 1", duration = 100), Song("m2", "More 2", duration = 100))
 
     private class Setup(val player: SilentPlayer, val on: MutableStateFlow<Boolean>, val asked: MutableList<String>)
 
-    private fun TestScope.setUp(on: Boolean = true, found: List<Song> = more): Setup {
+    private fun TestScope.setUp(on: Boolean = true, found: List<Song> = more, ahead: Int = 3): Setup {
         val player = SilentPlayer(clock = { testScheduler.currentTime }, random = Random(1))
         val enabled = MutableStateFlow(on)
         val asked = mutableListOf<String>()
         Autoplay(player, enabled, backgroundScope, pick = { seed, exclude ->
             asked += seed.id
             found.filter { it.id !in exclude }
-        }).start()
+        }, ahead = { ahead }).start()
         runCurrent()
         return Setup(player, enabled, asked)
     }
@@ -46,31 +46,39 @@ class AutoplayTest {
     private fun Setup.coming() = player.state.value.upcoming.map { it.song.id to it.source }
 
     @Test
-    fun nearTheEndOfTheLastSongSongsLikeItFollow() = runTest {
+    fun aSingleSongPlayedHasSongsLikeItFollowAtOnce() = runTest {
         val s = setUp()
-        s.player.play(songs, 1)
+        s.player.play(listOf(songs[0]))
         runCurrent()
-        // Not yet: most of the song is still to play.
-        elapse(60_000)
-        assertEquals(emptyList<String>(), s.asked)
-        elapse(25_000)
-        assertEquals(listOf("s2"), s.asked)
+        assertEquals(listOf("s1"), s.asked)
         assertEquals(listOf("m1" to QueueSource.Autoplay, "m2" to QueueSource.Autoplay), s.coming())
     }
 
     @Test
-    fun songsStillToComeMeanNothingIsAdded() = runTest {
+    fun itAddsOnceTheThirdSongFromTheEndIsOn() = runTest {
         val s = setUp()
         s.player.play(songs, 0)
         elapse(95_000)
-        assertEquals(emptyList<String>(), s.asked)
+        assertEquals("three still to come", emptyList<String>(), s.asked)
+        s.player.play(songs, 1)
+        runCurrent()
+        assertEquals(listOf("s2"), s.asked)
+        assertEquals(listOf("s3", "s4", "m1", "m2"), s.coming().map { it.first })
+    }
+
+    @Test
+    fun moreSavedAheadMeansMoreKeptReady() = runTest {
+        val s = setUp(ahead = 5)
+        s.player.play(songs, 0)
+        runCurrent()
+        assertEquals(listOf("s1"), s.asked)
     }
 
     @Test
     fun switchedOffRepeatingOrPausedItStandsDown() = runTest {
         val s = setUp(on = false)
-        s.player.play(songs, 1)
-        elapse(90_000)
+        s.player.play(songs, 3)
+        elapse(5_000)
         s.player.setRepeat(RepeatMode.All)
         s.on.value = true
         elapse(5_000)
@@ -81,28 +89,28 @@ class AutoplayTest {
         // Playing again, it adds.
         s.player.resume()
         elapse(2_000)
-        assertEquals(listOf("s2"), s.asked)
+        assertEquals(listOf("s4"), s.asked)
     }
 
     @Test
     fun itTriesOncePerSong() = runTest {
         val s = setUp(found = emptyList())
-        s.player.play(songs, 1)
-        elapse(90_000)
+        s.player.play(songs, 3)
+        elapse(5_000)
         s.player.pause()
         runCurrent()
         s.player.resume()
         elapse(5_000)
-        assertEquals(listOf("s2"), s.asked)
+        assertEquals(listOf("s4"), s.asked)
     }
 
     @Test
     fun theListenersOwnSongsKeepItAway() = runTest {
-        val s = setUp()
-        s.player.play(songs, 1)
-        elapse(10_000)
-        s.player.addToQueue(listOf(Song("x", "X", duration = 100)))
-        elapse(85_000)
+        val s = setUp(on = false)
+        s.player.play(songs, 2)
+        s.player.addToQueue((1..3).map { Song("x$it", "X$it", duration = 100) })
+        s.on.value = true
+        elapse(5_000)
         assertEquals(emptyList<String>(), s.asked)
     }
 

@@ -7,14 +7,15 @@ import org.junit.Test
 
 class AutoplayTest {
     @Test
-    fun itIsTimeOnlyNearTheEndOfTheLastSongWithRepeatOff() {
+    fun itIsTimeOnceTheQueueRunsShortWithRepeatOff() {
         val off = Player.REPEAT_MODE_OFF
-        assertTrue(autoplayDue(true, off, hasNext = false, remainingMs = 15_000, leadMs = 20_000))
-        assertFalse(autoplayDue(true, off, hasNext = false, remainingMs = 90_000, leadMs = 20_000))
-        assertFalse(autoplayDue(true, off, hasNext = true, remainingMs = 15_000, leadMs = 20_000))
-        assertFalse(autoplayDue(true, Player.REPEAT_MODE_ALL, hasNext = false, remainingMs = 15_000, leadMs = 20_000))
-        assertFalse(autoplayDue(true, Player.REPEAT_MODE_ONE, hasNext = false, remainingMs = 15_000, leadMs = 20_000))
+        assertTrue("a single song", autoplayDue(true, off, upcoming = 0, ahead = 3))
+        assertTrue("the third from the end", autoplayDue(true, off, upcoming = 2, ahead = 1))
+        assertFalse(autoplayDue(true, off, upcoming = 3, ahead = 3))
+        assertTrue("five saved ahead", autoplayDue(true, off, upcoming = 4, ahead = 5))
+        assertFalse(autoplayDue(true, Player.REPEAT_MODE_ALL, upcoming = 0, ahead = 3))
+        assertFalse(autoplayDue(true, Player.REPEAT_MODE_ONE, upcoming = 0, ahead = 3))
         // Switched off: never.
-        assertFalse(autoplayDue(false, off, hasNext = false, remainingMs = 0, leadMs = 20_000))
+        assertFalse(autoplayDue(false, off, upcoming = 0, ahead = 3))
     }
 }

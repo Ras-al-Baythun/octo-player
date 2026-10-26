@@ -90,7 +90,7 @@ class Prefetcher @Inject constructor(
 
     private fun refresh() {
         val player = player ?: return
-        val next = if (player.isPlaying) upcoming(player, count()) else emptyList()
+        val next = if (player.isPlaying) upcoming(player, aheadCount()) else emptyList()
         if (next == ahead && job?.isActive == true) return
         stop()
         ahead = next
@@ -111,7 +111,8 @@ class Prefetcher @Inject constructor(
         ahead = emptyList()
     }
 
-    private fun count(): Int = when {
+    // How many songs are saved ahead on the connection there is now.
+    fun aheadCount(): Int = when {
         !saved.enabled.value -> 0
         streams.onWifi() -> prefs.prefetchWifi
         streams.online() -> prefs.prefetchMobile

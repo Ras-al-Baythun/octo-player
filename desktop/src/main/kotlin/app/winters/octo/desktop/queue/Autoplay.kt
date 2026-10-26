@@ -9,6 +9,7 @@ import app.winters.octo.desktop.system.OPENED_FILE_PREFIX
 import app.winters.octo.playback.AUTOPLAY_BATCH
 import app.winters.octo.playback.QueueSource
 import app.winters.octo.playback.autoplayPicks
+import app.winters.octo.playback.autoplayWanted
 import app.winters.octo.radio.RadioDiscovery
 import app.winters.octo.radio.RadioInput
 import app.winters.octo.radio.RadioTuning
@@ -19,7 +20,6 @@ import app.winters.octo.subsonic.SubsonicClient
 import app.winters.octo.subsonic.SubsonicException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -29,31 +29,26 @@ import kotlin.random.Random
 // Songs played this recently are not picked again, as on the phone.
 private const val RECENT_PLAYS = 50
 
-// How near the end of the last song the new songs go in: early enough for
-// the server to answer and the engine to open the next one.
-const val AUTOPLAY_LEAD_MS = 20_000L
-
-// How often to look at how far into the last song the player is.
-private const val WATCH_EVERY_MS = 1_000L
-
 // This close to its end, a stopped song counts as played out.
 private const val ENDED_MS = 1_000L
 
 // Keeps music playing when the queue runs out, with the phone's rules:
-// near the end of the last song, with repeat off and the setting on, it
-// adds songs like it, marked as Autoplay's so the queue tells them from
-// the listener's own. It tries once per song; turning the setting off, a
-// pause, repeat or songs put in stand it down. `pick` finds the songs for
-// a seed, leaving out the ids given.
+// once the third song from the end is on (or more, when `ahead` songs are
+// saved ahead), with repeat off and the setting on, it adds songs like it,
+// marked as Autoplay's so the queue tells them from the listener's own;
+// early, so they are saved ahead before a connection drops. It tries once
+// per song; turning the setting off, a pause, repeat or songs put in stand
+// it down. A song of unknown length (a stream) never starts it. `pick`
+// finds the songs for a seed, leaving out the ids given.
 class Autoplay(
     private val player: DesktopPlayer,
     private val enabled: StateFlow<Boolean>,
     private val scope: CoroutineScope,
     private val pick: suspend (seed: Song, exclude: Set<String>) -> List<Song>,
-    private val leadMs: Long = AUTOPLAY_LEAD_MS,
-    private val everyMs: Long = WATCH_EVERY_MS,
+    // How many songs are saved ahead.
+    private val ahead: () -> Int = { 0 },
 ) {
-    // The last song's watch, and the entry it is for.
+    // The adding under way, and the entry it is for.
     private var watch: Job? = null
     private var watching: Long? = null
 
@@ -78,10 +73,14 @@ class Autoplay(
     // The entry to add after, when everything says so; else null.
     private fun lastSong(state: PlayerState, on: Boolean): Long? {
         val current = state.current ?: return null
-        val due = on && state.playing && state.repeat == RepeatMode.Off && state.upcoming.isEmpty() &&
+        val due = on && state.playing && short(state) && current.song.duration > 0 &&
             !current.song.id.startsWith(OPENED_FILE_PREFIX)
         return current.key.takeIf { due }
     }
+
+    // Repeat off and few enough songs to come.
+    private fun short(state: PlayerState): Boolean =
+        state.repeat == RepeatMode.Off && autoplayWanted(state.upcoming.size, ahead())
 
     private fun check(key: Long?) {
         if (key == null || key == doneFor) {
@@ -93,11 +92,10 @@ class Autoplay(
         if (watch?.isActive == true && watching == key) return
         watch?.cancel()
         watching = key
-        watch = scope.launch { watchAndAdd(key) }
+        watch = scope.launch { add(key) }
     }
 
-    private suspend fun watchAndAdd(key: Long) {
-        while ((leftMs() ?: Long.MAX_VALUE) > leadMs) delay(everyMs)
+    private fun add(key: Long) {
         val state = player.state.value
         val seed = state.current?.takeIf { it.key == key }?.song ?: return
         val queued = state.queue.map { it.song.id }.toSet()
@@ -107,13 +105,13 @@ class Autoplay(
         scope.launch {
             val songs = runCatching { pick(seed, queued + seed.id) }.getOrDefault(emptyList())
             if (songs.isEmpty()) return@launch
-            // Only if the song is still the last one and the setting still on.
+            // Only if the song is still on, the queue still short and the setting still on.
             val now = player.state.value
-            if (!enabled.value || now.current?.key != key || now.upcoming.isNotEmpty()) return@launch
+            if (!enabled.value || now.current?.key != key || !short(now)) return@launch
             // The song ended while the server answered: carry on.
             val ended = !now.playing && (leftMs() ?: Long.MAX_VALUE) < ENDED_MS
             player.addToQueue(songs, QueueSource.Autoplay)
-            if (ended) player.state.value.upcoming.firstOrNull()?.let { player.skipTo(it.key) }
+            if (ended && now.upcoming.isEmpty()) player.state.value.upcoming.firstOrNull()?.let { player.skipTo(it.key) }
         }
     }
 
