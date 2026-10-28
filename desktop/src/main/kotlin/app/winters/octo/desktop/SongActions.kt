@@ -9,6 +9,7 @@ import app.winters.octo.desktop.search.refreshLengths
 import app.winters.octo.desktop.search.songsWithoutLength
 import app.winters.octo.desktop.server.userMessage
 import app.winters.octo.playback.QueueSource
+import app.winters.octo.subsonic.SubsonicClient
 import app.winters.octo.radio.RadioDiscovery
 import app.winters.octo.radio.RadioInput
 import app.winters.octo.radio.RadioTuning
@@ -130,16 +131,35 @@ fun AppState.startRadioFrom(first: Song, seeds: List<Song>, exclude: Set<String>
     player.play(listOf(first), source = radio)
     val key = player.state.value.current?.key
     val index = library?.index
+    radioLoading.value = key
     scope.launch {
-        val similar = try {
-            libraryOnlySongs(client.similarSongs(first.id, settings.current.playback.radioTuning.suggestions), index, settings.state.value.libraryOnly)
-        } catch (e: SubsonicException) {
-            emptyList()
+        try {
+            radioAfter(client, first, seeds, exclude, radio, key, index)
+        } finally {
+            radioLoading.compareAndSet(key, null)
         }
-        val picks = withContext(Dispatchers.Default) { radioSongs(first, seeds, similar, index, exclude, { ratingOf(it) }, settings.current.playback.radioTuning) }
-        if (player.state.value.queue.none { it.key == key }) return@launch
-        if (picks.isEmpty()) notice = "Couldn't find songs like ${first.title}" else player.addToQueue(picks, radio)
     }
+}
+
+// The radio's songs after `first`, once the server has answered (see
+// startRadioFrom).
+private suspend fun AppState.radioAfter(
+    client: SubsonicClient,
+    first: Song,
+    seeds: List<Song>,
+    exclude: Set<String>,
+    radio: QueueSource,
+    key: Long?,
+    index: LibraryIndex?,
+) {
+    val similar = try {
+        libraryOnlySongs(client.similarSongs(first.id, settings.current.playback.radioTuning.suggestions), index, settings.state.value.libraryOnly)
+    } catch (e: SubsonicException) {
+        emptyList()
+    }
+    val picks = withContext(Dispatchers.Default) { radioSongs(first, seeds, similar, index, exclude, { ratingOf(it) }, settings.current.playback.radioTuning) }
+    if (player.state.value.queue.none { it.key == key }) return
+    if (picks.isEmpty()) notice = "Couldn't find songs like ${first.title}" else player.addToQueue(picks, radio)
 }
 
 // A radio for an artist: one of their songs, then songs like theirs. Their

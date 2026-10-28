@@ -152,6 +152,12 @@ class ListenBrainzTest {
     }
 
     @Test
+    fun aYouTubeVideoIsNeverSent() {
+        assertFalse(shouldSend(SendPlays.All, reachesServer = true, video = true))
+        assertFalse(shouldSend(SendPlays.PhoneOnly, reachesServer = false, video = true))
+    }
+
+    @Test
     fun onlySongsOnThisPhoneLeavesOutWhatTheServerHears() {
         assertFalse(shouldSend(SendPlays.PhoneOnly, reachesServer = true))
         assertTrue(shouldSend(SendPlays.PhoneOnly, reachesServer = false))

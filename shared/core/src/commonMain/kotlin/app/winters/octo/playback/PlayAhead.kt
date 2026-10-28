@@ -33,3 +33,17 @@ fun <T> nextInPlayOrder(order: List<T>, at: Int, repeatAll: Boolean, count: Int)
     }
     return ranks.map(order::get)
 }
+
+// The longest a song may run, in minutes, to be saved ahead of playing;
+// 0 is no limit. Longer songs and videos still go in the queue and stream
+// when they play: this only keeps an hour of ambience off mobile data.
+val AHEAD_MAX_MINUTES = listOf(0, 4, 6, 8, 10, 15)
+const val AHEAD_MAX_DEFAULT = 8
+
+// Whether a song of `lengthSeconds` (null or 0 when not known) is saved
+// ahead under a limit of `maxMinutes`. A length not known is taken as a song's.
+fun savedAhead(lengthSeconds: Long?, maxMinutes: Int): Boolean =
+    maxMinutes <= 0 || lengthSeconds == null || lengthSeconds <= 0 || lengthSeconds <= maxMinutes * 60L
+
+// How a limit reads in a list of them.
+fun aheadMaxLabel(maxMinutes: Int): String = if (maxMinutes <= 0) "No limit" else "$maxMinutes min"

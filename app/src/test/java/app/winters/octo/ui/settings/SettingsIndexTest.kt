@@ -61,7 +61,7 @@ class SettingsIndexTest {
     fun everyWordMustBeFound() {
         // Both words in the title first, then "mobile" with the page's name.
         assertEquals(
-            listOf("Streaming on mobile data", "Fetch ahead on mobile data", "Download on Wi-Fi only"),
+            listOf("Streaming on mobile data", "Fetch ahead on mobile data", "Longest song saved ahead", "Download on Wi-Fi only"),
             titles("streaming mobile"),
         )
         assertEquals(emptyList<String>(), titles("crossfade bluetooth"))

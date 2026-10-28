@@ -36,6 +36,17 @@ class SongsAheadTest {
     }
 
     @Test
+    fun songsLongerThanTheLimitAreLeftToStream() {
+        val next = listOf(
+            Song("short", "Song", duration = 210),
+            Song("mix", "Ba Sing Se Ambience", duration = 4706),
+            Song("eight", "Long remix", duration = 8 * 60),
+        )
+        assertEquals(listOf("short", "eight"), songsToSave(next, maxMinutes = 8) { false }.map { it.id })
+        assertEquals(listOf("short", "mix", "eight"), songsToSave(next, maxMinutes = 0) { false }.map { it.id })
+    }
+
+    @Test
     fun theNextSongsAreSavedAndTheRestTidiedAway() = runBlocking {
         FakeServer().use { server ->
             server.fileBy("stream") { request -> "audio of ${request.url.queryParameter("id")}".toByteArray() }

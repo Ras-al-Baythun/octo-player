@@ -397,6 +397,10 @@ object SettingsIndex {
         "fetch_mobile", SettingsPage.Streaming, "Fetch ahead on mobile data", "Songs ahead saved on mobile data",
         listOf("prefetch", "preload", "cellular"), section = "Cache",
     )
+    val FetchLongest = add(
+        "fetch_longest", SettingsPage.Streaming, "Longest song saved ahead", "Longer songs and videos stream when they play",
+        listOf("prefetch", "length", "long", "data", "mobile", "minutes", "video", "limit"), section = "Cache",
+    )
     val ClearCache = add(
         "clear_cache", SettingsPage.Streaming, "Clear cache", "Free the room the cache takes",
         listOf("free space", "storage", "delete"), section = "Cache",

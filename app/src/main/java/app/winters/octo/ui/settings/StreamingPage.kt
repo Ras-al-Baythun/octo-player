@@ -27,9 +27,12 @@ import app.winters.octo.ui.family.ORIGINAL_LABEL
 import app.winters.octo.ui.offline.sizeLabel
 import app.winters.octo.ui.settings.rows.ActionRow
 import app.winters.octo.ui.settings.rows.ChoiceRow
+import app.winters.octo.ui.settings.rows.NoteRow
 import app.winters.octo.ui.settings.rows.SettingsGroup
 import app.winters.octo.ui.settings.rows.SettingsPageFrame
 import app.winters.octo.ui.settings.rows.SwitchRow
+import app.winters.octo.playback.AHEAD_MAX_MINUTES
+import app.winters.octo.playback.aheadMaxLabel
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
@@ -82,6 +85,7 @@ class OfflineViewModel @Inject constructor(
     fun setCacheSize(size: CacheSize) = change { setCacheSize(size) }
     fun setPrefetchWifi(count: Int) = change { setPrefetchWifi(count) }
     fun setPrefetchMobile(count: Int) = change { setPrefetchMobile(count) }
+    fun setPrefetchMaxMinutes(minutes: Int) = change { setPrefetchMaxMinutes(minutes) }
     fun setDownloadQuality(quality: StreamQuality) = change { setDownloadQuality(quality) }
     fun setWifiOnly(on: Boolean) = change { setWifiOnly(on) }
     fun setStreamOnWifi(on: Boolean) = change { setStreamOnWifi(on) }
@@ -165,6 +169,17 @@ fun StreamingPage(
                 ChoiceRow(SettingsIndex.FetchMobile, value = ahead(kept.prefetchMobile), onClick = {
                     sheet.show(aheadRequest(SettingsIndex.FetchMobile.title, kept.prefetchMobile, offline::setPrefetchMobile))
                 })
+                ChoiceRow(SettingsIndex.FetchLongest, value = aheadMaxLabel(kept.prefetchMaxMinutes), onClick = {
+                    val limits = if (kept.prefetchMaxMinutes in AHEAD_MAX_MINUTES) AHEAD_MAX_MINUTES else (AHEAD_MAX_MINUTES + kept.prefetchMaxMinutes).sorted()
+                    sheet.show(
+                        ChoiceRequest(
+                            SettingsIndex.FetchLongest.title,
+                            limits.map { Choice(aheadMaxLabel(it), if (it == 0) "Mixes and hour-long videos too" else null) },
+                            limits.indexOf(kept.prefetchMaxMinutes),
+                        ) { offline.setPrefetchMaxMinutes(limits[it]) },
+                    )
+                })
+                NoteRow("Uses less data: Audio quality → Streaming on mobile data.")
                 ActionRow(SettingsIndex.ClearCache, onClick = offline::clearCache, enabled = used > 0, chevron = false)
             }
         }

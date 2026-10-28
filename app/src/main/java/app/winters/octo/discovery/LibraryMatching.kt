@@ -62,6 +62,7 @@ fun Song.toFind(sourceId: String, now: Long) = OnlineSongEntity(
     bitrate = bitRate?.takeIf { it > 0 },
     seenAt = now,
     explicit = explicitOf(explicitStatus.orEmpty()),
+    video = octoVideo,
 )
 
 // A found song shaped like a library song, so every list, menu and the

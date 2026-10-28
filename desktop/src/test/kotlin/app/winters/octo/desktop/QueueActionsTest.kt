@@ -129,7 +129,8 @@ class QueueActionsTest {
         waitFor { coming().isNotEmpty() }
         val radio = QueueSource.Played("Song 1 radio")
         assertEquals(radio, player.state.value.current?.source)
-        assertEquals(listOf(radio), player.state.value.upcoming.map { it.source })
+        // The radio's song first; with fewer than three, Autoplay may follow it.
+        assertEquals(radio, player.state.value.upcoming.first().source)
     }
 
     @Test

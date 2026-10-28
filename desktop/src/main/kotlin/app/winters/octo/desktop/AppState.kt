@@ -45,6 +45,7 @@ import app.winters.octo.desktop.queue.autoplaySongs
 import app.winters.octo.desktop.queue.queueNameFor
 import app.winters.octo.desktop.search.COMMAND_MARK
 import app.winters.octo.playback.QueueSource
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 import app.winters.octo.desktop.search.Fetches
@@ -275,6 +276,10 @@ class AppState(
     // listener should know once (never a stack of toasts).
     var notice by mutableStateOf<String?>(null)
 
+    // The queue entry a radio is still finding songs for, so Autoplay does
+    // not fill in meanwhile.
+    val radioLoading = MutableStateFlow<Long?>(null)
+
     // Hearts set or cleared here, shown before the server's lists catch up.
     private val starOverrides = mutableStateMapOf<String, Boolean>()
 
@@ -361,6 +366,7 @@ class AppState(
             }
         },
         ahead = { settings.current.playback.songsAhead.coerceIn(0, SONGS_AHEAD_MAX) },
+        awaited = radioLoading,
     ).also { it.start() }
 
     // ---- End of the queue's edits ----

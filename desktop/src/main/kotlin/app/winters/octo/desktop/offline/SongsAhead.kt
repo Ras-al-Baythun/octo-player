@@ -7,6 +7,7 @@ import app.winters.octo.desktop.player.DesktopPlayer
 import app.winters.octo.desktop.system.isOpenedFile
 import app.winters.octo.offline.fileSafe
 import app.winters.octo.subsonic.Song
+import app.winters.octo.playback.savedAhead
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.collectLatest
@@ -21,10 +22,13 @@ import java.util.concurrent.ConcurrentHashMap
 import kotlin.coroutines.coroutineContext
 
 // The songs to save ahead: the next `count` in play order that come from
-// the server, with a length (a stream never ends) and no copy kept here.
-fun songsToSave(next: List<Song>, kept: (String) -> Boolean): List<Song> =
-    next.filter { !it.id.startsWith(LOCAL_PREFIX) && !isOpenedFile(it.id) && it.duration > 0 && !kept(it.id) }
-        .distinctBy { it.id }
+// the server, with a length (a stream never ends) no longer than
+// `maxMinutes` (0 is no limit) and no copy kept here.
+fun songsToSave(next: List<Song>, maxMinutes: Int = 0, kept: (String) -> Boolean): List<Song> =
+    next.filter {
+        !it.id.startsWith(LOCAL_PREFIX) && !isOpenedFile(it.id) && it.duration > 0 &&
+            savedAhead(it.duration.toLong(), maxMinutes) && !kept(it.id)
+    }.distinctBy { it.id }
 
 // Saves the next songs of the queue on this computer while music plays, as
 // the phone does, so they start at once and still play when the connection
@@ -54,9 +58,15 @@ class SongsAhead(
     fun fileFor(id: String): File? = files[id]
 
     // Follows the player until cancelled, keeping `count` songs saved ahead.
-    suspend fun follow(player: DesktopPlayer, count: () -> Int, kept: (String) -> Boolean, saved: () -> Unit) {
+    suspend fun follow(
+        player: DesktopPlayer,
+        count: () -> Int,
+        kept: (String) -> Boolean,
+        maxMinutes: () -> Int = { 0 },
+        saved: () -> Unit,
+    ) {
         player.state
-            .map { state -> state.current?.song?.id to songsToSave(entriesAhead(state, count()).map { it.song }, kept) }
+            .map { state -> state.current?.song?.id to songsToSave(entriesAhead(state, count()).map { it.song }, maxMinutes(), kept) }
             .distinctUntilChanged()
             .collectLatest { (current, next) ->
                 withContext(Dispatchers.IO) {

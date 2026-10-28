@@ -81,7 +81,7 @@ class ListenBrainzSync @Inject constructor(
             val prefs = store.current()
             if (!prefs.keepsPlays) return@launch
             val song = songOf(trackId) ?: return@launch
-            if (!shouldSend(prefs.sendPlays, song.reachesServer)) return@launch
+            if (!shouldSend(prefs.sendPlays, song.reachesServer, song.video)) return@launch
             val listen = song.listenAt(startedAt) ?: return@launch
             store.addListen(listen)
             send(now = false)
@@ -95,7 +95,7 @@ class ListenBrainzSync @Inject constructor(
             val prefs = store.current()
             if (!prefs.sends || !prefs.nowPlaying) return@launch
             val song = songOf(trackId) ?: return@launch
-            if (!shouldSend(prefs.sendPlays, song.reachesServer)) return@launch
+            if (!shouldSend(prefs.sendPlays, song.reachesServer, song.video)) return@launch
             val listen = song.listenAt(System.currentTimeMillis()) ?: return@launch
             val token = store.token() ?: return@launch
             if (api.playingNow(token, listen, version) == SubmitResult.Unauthorized) store.setNeedsAttention(true)
@@ -206,7 +206,7 @@ class ListenBrainzSync @Inject constructor(
     private suspend fun listedSongOf(trackId: String): PlayedSong? = when {
         isRadio(trackId) -> null
         isOpenedFile(trackId) -> openedFileOf(trackId)?.let { PlayedSong(it.title, it.artist, "", 0, null, reachesServer = false) }
-        isFind(trackId) -> online.song(trackId)?.let { PlayedSong(it.title, it.artist, it.album, it.durationMs, null, reachesServer = true) }
+        isFind(trackId) -> online.song(trackId)?.let { PlayedSong(it.title, it.artist, it.album, it.durationMs, null, reachesServer = true, video = it.video) }
         else -> catalog.track(trackId)?.let { track ->
             val copies = sources.copies(trackId)
             val details = songDetails(copies)

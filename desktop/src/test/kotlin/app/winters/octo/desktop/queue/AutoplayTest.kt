@@ -26,14 +26,19 @@ class AutoplayTest {
 
     private class Setup(val player: SilentPlayer, val on: MutableStateFlow<Boolean>, val asked: MutableList<String>)
 
-    private fun TestScope.setUp(on: Boolean = true, found: List<Song> = more, ahead: Int = 3): Setup {
+    private fun TestScope.setUp(
+        on: Boolean = true,
+        found: List<Song> = more,
+        ahead: Int = 3,
+        awaited: MutableStateFlow<Long?> = MutableStateFlow(null),
+    ): Setup {
         val player = SilentPlayer(clock = { testScheduler.currentTime }, random = Random(1))
         val enabled = MutableStateFlow(on)
         val asked = mutableListOf<String>()
         Autoplay(player, enabled, backgroundScope, pick = { seed, exclude ->
             asked += seed.id
             found.filter { it.id !in exclude }
-        }, ahead = { ahead }).start()
+        }, ahead = { ahead }, awaited = awaited).start()
         runCurrent()
         return Setup(player, enabled, asked)
     }
@@ -52,6 +57,21 @@ class AutoplayTest {
         runCurrent()
         assertEquals(listOf("s1"), s.asked)
         assertEquals(listOf("m1" to QueueSource.Autoplay, "m2" to QueueSource.Autoplay), s.coming())
+    }
+
+    @Test
+    fun aRadioStillFindingItsSongsIsLeftBe() = runTest {
+        val awaited = MutableStateFlow<Long?>(null)
+        val s = setUp(awaited = awaited)
+        awaited.value = -1
+        s.player.play(listOf(songs[0]))
+        awaited.value = s.player.state.value.current?.key
+        runCurrent()
+        assertEquals(emptyList<String>(), s.asked)
+        // The radio found nothing: Autoplay carries on.
+        awaited.value = null
+        runCurrent()
+        assertEquals(listOf("s1"), s.asked)
     }
 
     @Test

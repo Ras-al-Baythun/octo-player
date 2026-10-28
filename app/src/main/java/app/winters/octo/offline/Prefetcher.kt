@@ -12,6 +12,7 @@ import app.winters.octo.catalog.isFind
 import app.winters.octo.playback.Streams
 import app.winters.octo.playback.parseStreamUri
 import app.winters.octo.playback.streamUri
+import app.winters.octo.playback.savedAhead
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -31,7 +32,8 @@ private const val START_AFTER_MS = 5_000L
 // While music plays, fetches the next few server songs of the queue into
 // the saved songs, so they start at once and still play if the connection
 // drops. How many depends on the connection: Wi-Fi and mobile data have
-// their own counts. Any change to what comes next starts it over. Songs
+// their own counts. A song longer than the limit set (an hour of ambience)
+// is left to stream when it plays; it still counts among the next ones. Any change to what comes next starts it over. Songs
 // found online are never fetched ahead, only saved as they play.
 @OptIn(UnstableApi::class)
 @Singleton
@@ -134,7 +136,8 @@ class Prefetcher @Inject constructor(
             if (index == C.INDEX_UNSET || index == player.currentMediaItemIndex) return uris
             val item = player.getMediaItemAt(index)
             val uri = item.localConfiguration?.uri?.toString()
-            if (uri != null && !isFind(item.mediaId) && parseStreamUri(uri) != null) uris += uri
+            val seconds = item.mediaMetadata.durationMs?.let { it / 1000 }
+            if (uri != null && !isFind(item.mediaId) && parseStreamUri(uri) != null && savedAhead(seconds, prefs.prefetchMaxMinutes)) uris += uri
         }
         return uris
     }

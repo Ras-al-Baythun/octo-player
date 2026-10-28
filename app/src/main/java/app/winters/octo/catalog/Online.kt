@@ -48,6 +48,9 @@ data class OnlineSongEntity(
     // True when the server marks it explicit, false when clean, null when
     // nothing says.
     val explicit: Boolean? = null,
+    // A YouTube video found as itself (an ambience, a mix) rather than a
+    // song: its row says so, and its plays are not sent to ListenBrainz.
+    @ColumnInfo(defaultValue = "0") val video: Boolean = false,
 )
 
 @Dao

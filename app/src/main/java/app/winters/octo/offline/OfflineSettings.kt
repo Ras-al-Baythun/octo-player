@@ -8,6 +8,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import app.winters.octo.playback.StreamQuality
+import app.winters.octo.playback.AHEAD_MAX_DEFAULT
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -35,6 +36,9 @@ data class OfflinePrefs(
     // How many songs ahead in the queue to fetch while one plays.
     val prefetchWifi: Int = 3,
     val prefetchMobile: Int = 3,
+    // The longest song, in minutes, fetched ahead (0 is no limit); longer
+    // songs and videos stream when they play.
+    val prefetchMaxMinutes: Int = AHEAD_MAX_DEFAULT,
     // Downloads come as the server's file unless a smaller MP3 is chosen.
     val downloadQuality: StreamQuality = StreamQuality.Original,
     val wifiOnly: Boolean = true,
@@ -49,6 +53,7 @@ private val Context.offlinePrefs by preferencesDataStore("offline")
 private val CACHE_SIZE = stringPreferencesKey("cache_size")
 private val PREFETCH_WIFI = intPreferencesKey("prefetch_wifi")
 private val PREFETCH_MOBILE = intPreferencesKey("prefetch_mobile")
+private val PREFETCH_MAX_MINUTES = intPreferencesKey("prefetch_max_minutes")
 private val DOWNLOAD_QUALITY = stringPreferencesKey("download_quality")
 private val WIFI_ONLY = booleanPreferencesKey("wifi_only")
 private val STREAM_ON_WIFI = booleanPreferencesKey("stream_on_wifi")
@@ -66,6 +71,7 @@ class OfflineSettings @Inject constructor(@ApplicationContext private val contex
             cacheSize = choice(stored[CACHE_SIZE], defaults.cacheSize),
             prefetchWifi = (stored[PREFETCH_WIFI] ?: defaults.prefetchWifi).coerceIn(PrefetchRange),
             prefetchMobile = (stored[PREFETCH_MOBILE] ?: defaults.prefetchMobile).coerceIn(PrefetchRange),
+            prefetchMaxMinutes = (stored[PREFETCH_MAX_MINUTES] ?: defaults.prefetchMaxMinutes).coerceAtLeast(0),
             downloadQuality = choice(stored[DOWNLOAD_QUALITY], defaults.downloadQuality),
             wifiOnly = stored[WIFI_ONLY] ?: defaults.wifiOnly,
             streamOnWifi = stored[STREAM_ON_WIFI] ?: defaults.streamOnWifi,
@@ -84,6 +90,10 @@ class OfflineSettings @Inject constructor(@ApplicationContext private val contex
 
     suspend fun setPrefetchMobile(count: Int) {
         context.offlinePrefs.edit { it[PREFETCH_MOBILE] = count.coerceIn(PrefetchRange) }
+    }
+
+    suspend fun setPrefetchMaxMinutes(minutes: Int) {
+        context.offlinePrefs.edit { it[PREFETCH_MAX_MINUTES] = minutes.coerceAtLeast(0) }
     }
 
     suspend fun setDownloadQuality(quality: StreamQuality) {
@@ -124,6 +134,7 @@ class OfflineSettings @Inject constructor(@ApplicationContext private val contex
             p[CACHE_SIZE] = prefs.cacheSize.name
             p[PREFETCH_WIFI] = prefs.prefetchWifi.coerceIn(PrefetchRange)
             p[PREFETCH_MOBILE] = prefs.prefetchMobile.coerceIn(PrefetchRange)
+            p[PREFETCH_MAX_MINUTES] = prefs.prefetchMaxMinutes.coerceAtLeast(0)
             p[DOWNLOAD_QUALITY] = prefs.downloadQuality.name
             p[WIFI_ONLY] = prefs.wifiOnly
             p[STREAM_ON_WIFI] = prefs.streamOnWifi

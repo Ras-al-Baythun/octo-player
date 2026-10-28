@@ -69,6 +69,8 @@ import app.winters.octo.desktop.ui.LocalSoftwareDrawing
 import app.winters.octo.ui.family.AUDIO_QUALITY
 import app.winters.octo.subsonic.OCTO_VIDEOS
 import app.winters.octo.subsonic.OnlineFind
+import app.winters.octo.playback.AHEAD_MAX_MINUTES
+import app.winters.octo.playback.aheadMaxLabel
 import kotlin.math.roundToInt
 
 // Settings: the servers, how Octo looks, playback, listening, lyrics,
@@ -208,6 +210,15 @@ private fun PlaybackRows(app: AppState, settings: AppSettings) {
             live = false,
             wheelStep = 1f / SONGS_AHEAD_MAX,
         )
+        if (ahead > 0) {
+            ChoiceRow(
+                "Longest song saved",
+                "Longer songs and videos stream when they play. For less data, pick a smaller quality under Quality.",
+                AHEAD_MAX_MINUTES,
+                settings.playback.aheadMaxMinutes,
+                ::aheadMaxLabel,
+            ) { minutes -> app.settings.update { it.copy(playback = it.playback.copy(aheadMaxMinutes = minutes)) } }
+        }
         SwitchRow(LIBRARY_ONLY_SETTING, LIBRARY_ONLY_HELP, settings.libraryOnly) { on -> app.setLibraryOnly(on) }
         if (app.connection?.supports(OCTO_VIDEOS) == true && !settings.libraryOnly) {
             ChoiceRow(

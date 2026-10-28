@@ -73,6 +73,8 @@ data class PlayedSong(
     val releaseMbid: String? = null,
     val releaseGroupMbid: String? = null,
     val artistMbids: List<String> = emptyList(),
+    // A YouTube video found as itself (an ambience, a mix): never sent.
+    val video: Boolean = false,
 ) {
     // Null when the song has no title or artist, which ListenBrainz needs.
     fun listenAt(startedAtMs: Long): Listen? {
@@ -107,7 +109,8 @@ enum class SendPlays { All, PhoneOnly }
 fun playReachesServer(trackId: String, copySources: List<String>): Boolean =
     isFind(trackId) || copySources.any { it.startsWith("server:") }
 
-fun shouldSend(mode: SendPlays, reachesServer: Boolean): Boolean = mode == SendPlays.All || !reachesServer
+fun shouldSend(mode: SendPlays, reachesServer: Boolean, video: Boolean = false): Boolean =
+    !video && (mode == SendPlays.All || !reachesServer)
 
 // Oldest first, each play once, and never more than the cap.
 fun List<Listen>.plusListen(listen: Listen): List<Listen> =

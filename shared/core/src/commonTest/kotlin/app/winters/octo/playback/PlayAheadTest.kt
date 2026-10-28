@@ -1,6 +1,8 @@
 package app.winters.octo.playback
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class PlayAheadTest {
@@ -69,5 +71,16 @@ class PlayAheadTest {
         // Two songs repeating: after b comes a, which is on.
         val next = { position: Int -> 1 - position }
         assertEquals(listOf(1), nextInPlayOrder(current = 0, count = 2, next = next))
+    }
+
+    @Test
+    fun onlySongsUpToTheLimitAreSavedAhead() {
+        assertTrue(savedAhead(8 * 60L, 8))
+        assertFalse(savedAhead(8 * 60L + 1, 8))
+        assertFalse(savedAhead(4706, 8))
+        assertTrue("no limit", savedAhead(4706, 0))
+        assertTrue("a length not known", savedAhead(null, 4))
+        assertEquals("No limit", aheadMaxLabel(0))
+        assertEquals("8 min", aheadMaxLabel(8))
     }
 }

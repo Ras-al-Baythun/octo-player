@@ -26,6 +26,7 @@ import app.winters.octo.radio.RadioDiscovery
 import app.winters.octo.radio.RadioTuning
 import app.winters.octo.radio.RadioVariety
 import app.winters.octo.subsonic.OnlineFind
+import app.winters.octo.playback.AHEAD_MAX_DEFAULT
 import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
@@ -340,6 +341,9 @@ data class PlaybackPrefs(
     // playing, so they play on when the connection drops (0 to 10, 0 is
     // off); Autoplay keeps at least as many ready.
     val songsAhead: Int = SONGS_AHEAD_DEFAULT,
+    // The longest song, in minutes, saved ahead (0 is no limit); longer
+    // songs and videos stream when they play.
+    val aheadMaxMinutes: Int = AHEAD_MAX_DEFAULT,
     // How songs stream when this app picks the quality: the file as it is,
     // or Opus at a lower bitrate (a StreamQuality name); and how much of a
     // stream is ready before it starts.

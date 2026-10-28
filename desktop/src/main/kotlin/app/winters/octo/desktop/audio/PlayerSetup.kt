@@ -56,7 +56,13 @@ fun openPlayer(
         val player = EnginePlayer(engine, sources, volume = playback.volume, device = device, profiles = profiles)
         saver?.let {
             scope.launch {
-                it.follow(player, { settings.current.playback.songsAhead.coerceIn(0, SONGS_AHEAD_MAX) }, { id -> kept(id) != null }, player::refreshSources)
+                it.follow(
+                    player,
+                    { settings.current.playback.songsAhead.coerceIn(0, SONGS_AHEAD_MAX) },
+                    { id -> kept(id) != null },
+                    { settings.current.playback.aheadMaxMinutes.coerceAtLeast(0) },
+                    player::refreshSources,
+                )
             }
         }
         OpenedPlayer(player, null)

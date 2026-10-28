@@ -20,6 +20,7 @@ import app.winters.octo.subsonic.SubsonicClient
 import app.winters.octo.subsonic.SubsonicException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -47,6 +48,9 @@ class Autoplay(
     private val pick: suspend (seed: Song, exclude: Set<String>) -> List<Song>,
     // How many songs are saved ahead.
     private val ahead: () -> Int = { 0 },
+    // The entry whose own songs are still on their way (a radio the server
+    // is answering for); Autoplay leaves it be until they are in.
+    private val awaited: StateFlow<Long?> = MutableStateFlow(null),
 ) {
     // The adding under way, and the entry it is for.
     private var watch: Job? = null
@@ -65,7 +69,7 @@ class Autoplay(
                 }
             }
         }
-        combine(player.state, enabled) { state, on -> lastSong(state, on) }
+        combine(player.state, enabled, awaited) { state, on, waiting -> lastSong(state, on).takeIf { it != waiting } }
             .distinctUntilChanged()
             .collect { key -> check(key) }
     }
