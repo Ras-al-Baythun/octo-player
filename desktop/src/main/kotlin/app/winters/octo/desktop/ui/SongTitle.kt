@@ -1,17 +1,25 @@
 package app.winters.octo.desktop.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.FirstBaseline
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import app.winters.octo.catalog.isExplicit
+import app.winters.octo.design.Corner
+import app.winters.octo.design.DesktopType
 import app.winters.octo.design.ExplicitMark
 import app.winters.octo.design.ExplicitMarkGap
 import app.winters.octo.design.OctoColors
+import app.winters.octo.design.Space
+import app.winters.octo.design.Txt
 import app.winters.octo.subsonic.Song
 import kotlin.math.roundToInt
 
@@ -44,3 +52,17 @@ fun MarkedTitle(
 
 // How tall a capital is, as a share of the type's size, in the app's type.
 private const val CapShare = 0.7f
+
+// The quiet "YouTube" after a song that is a YouTube video found as itself
+// (an ambience, a mix, an upload) rather than a song from a catalog.
+@Composable
+fun VideoTag() {
+    Txt(
+        "YouTube",
+        DesktopType.meta,
+        OctoColors.TextSecondary,
+        Modifier.clip(RoundedCornerShape(Corner.ArtS)).background(VideoTagFill).padding(horizontal = Space.S, vertical = Space.Xxs),
+    )
+}
+
+private val VideoTagFill = Color.White.copy(alpha = 0.08f)

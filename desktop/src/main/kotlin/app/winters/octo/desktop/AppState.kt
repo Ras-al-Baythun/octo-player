@@ -92,6 +92,7 @@ import app.winters.octo.subsonic.Playlist
 import app.winters.octo.subsonic.Song
 import app.winters.octo.subsonic.SubsonicException
 import app.winters.octo.subsonic.refusesOutsideSong
+import app.winters.octo.subsonic.OCTO_VIDEOS
 import app.winters.octo.ui.family.FamilyModel
 import app.winters.octo.ui.imports.ImportModel
 import app.winters.octo.ui.search.withRecent
@@ -487,7 +488,11 @@ class AppState(
         return ServerViews(
             store,
             if (connection.acquires) Fetches(connection.client, scope, onArrived = { store.load() }, onAsked = { downloads?.wake() }) else null,
-            SearchModel(connection, { store.index }, { playlists }, scope, { settings.current.libraryOnly }, player.lengths, store::takeIn),
+            SearchModel(
+                connection, { store.index }, { playlists }, scope, { settings.current.libraryOnly }, player.lengths,
+                find = { settings.current.onlineFind.takeIf { connection.supports(OCTO_VIDEOS) } },
+                takeIn = store::takeIn,
+            ),
             HomeStore(connection, scope, kept = keptShelves, sections = { homeSectionOrder(settings.current.appearance.homeSections) }),
             // Any Octo server: whether it can look for FLACs is asked live,
             // since the extensions saved at sign-in may be older than it.

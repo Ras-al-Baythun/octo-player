@@ -82,6 +82,7 @@ import app.winters.octo.ui.common.Segmented
 import app.winters.octo.ui.common.SongLead
 import app.winters.octo.ui.common.SongRow
 import app.winters.octo.ui.common.rowAlbum
+import app.winters.octo.ui.common.songSubtitle
 import app.winters.octo.ui.common.songs
 import app.winters.octo.ui.nav.AlbumRoute
 import app.winters.octo.ui.nav.ArtistRoute
@@ -378,6 +379,7 @@ private fun DiscoverState.only(filter: SearchFilter): DiscoverState {
             albums = if (filter == SearchFilter.Albums) found.albums else emptyList(),
             artists = if (filter == SearchFilter.Artists) found.artists else emptyList(),
             partAlbums = if (filter == SearchFilter.Albums) found.partAlbums else emptyList(),
+            videos = found.videos,
         ),
     )
 }
@@ -426,7 +428,10 @@ private fun LazyListScope.discoverSection(
             items(found.songs, key = { "discover:${it.id}" }) { track ->
                 // A find that turns into its library song ends like the
                 // library songs listed above, at its length.
-                SongRow(track, offerAdd = true, librarySpace = false) { onPlay(track) }
+                // A YouTube video found as itself (an ambience, a mix) says so.
+                val subtitle: (TrackEntity) -> String? =
+                    if (track.id in found.videos) { shown -> "YouTube · ${songSubtitle(shown)}" } else ::songSubtitle
+                SongRow(track, subtitle = subtitle, offerAdd = true, librarySpace = false) { onPlay(track) }
             }
             if (found.albums.isNotEmpty()) {
                 item(key = "discover:albums:title") { SubTitle("Albums") }

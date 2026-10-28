@@ -67,6 +67,8 @@ import app.winters.octo.design.OctoIcons
 import app.winters.octo.desktop.hotkeys.GlobalShortcutGroup
 import app.winters.octo.desktop.ui.LocalSoftwareDrawing
 import app.winters.octo.ui.family.AUDIO_QUALITY
+import app.winters.octo.subsonic.OCTO_VIDEOS
+import app.winters.octo.subsonic.OnlineFind
 import kotlin.math.roundToInt
 
 // Settings: the servers, how Octo looks, playback, listening, lyrics,
@@ -207,6 +209,15 @@ private fun PlaybackRows(app: AppState, settings: AppSettings) {
             wheelStep = 1f / SONGS_AHEAD_MAX,
         )
         SwitchRow(LIBRARY_ONLY_SETTING, LIBRARY_ONLY_HELP, settings.libraryOnly) { on -> app.setLibraryOnly(on) }
+        if (app.connection?.supports(OCTO_VIDEOS) == true && !settings.libraryOnly) {
+            ChoiceRow(
+                "Search online for",
+                "Music from the catalogs, YouTube videos such as ambience and mixes, or both.",
+                OnlineFind.entries,
+                settings.onlineFind,
+                { it.label },
+            ) { find -> app.settings.update { it.copy(onlineFind = find) } }
+        }
         ActionRow("Equalizer, loudness, crossfade and speed", null, "Open Sound", { app.navigator.go(Page.Sound) })
     }
     val playback = settings.playback

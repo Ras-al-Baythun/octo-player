@@ -25,6 +25,7 @@ import app.winters.octo.radio.RadioAdventure
 import app.winters.octo.radio.RadioDiscovery
 import app.winters.octo.radio.RadioTuning
 import app.winters.octo.radio.RadioVariety
+import app.winters.octo.subsonic.OnlineFind
 import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
@@ -89,6 +90,9 @@ data class AppSettings(
     // Only songs in the library: albums, search, artists and radio leave
     // out songs found online.
     val libraryOnly: Boolean = false,
+    // What search looks for online on an Octo that also finds YouTube
+    // videos: songs, videos (an ambience, a mix) or both.
+    val onlineFind: OnlineFind = OnlineFind.Both,
     // This install's id, made once, which its own server tells it apart
     // by. Empty until first needed.
     val deviceId: String = "",

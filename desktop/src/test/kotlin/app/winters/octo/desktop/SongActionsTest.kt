@@ -181,7 +181,8 @@ class SongActionsTest {
         app.startArtistRadio("ar1", "Radiohead")
         waitFor { queueIds().isNotEmpty() }
         assertEquals(listOf("t1", "t2"), queueIds())
-        assertEquals("ar1", callsTo("getSimilarSongs2").single().url.queryParameter("id"))
+        // The radio asks first; Autoplay, with only two songs to come, may ask after it.
+        assertEquals("ar1", callsTo("getSimilarSongs2").first().url.queryParameter("id"))
         assertEquals("Radiohead", callsTo("getTopSongs").single().url.queryParameter("artist"))
     }
 

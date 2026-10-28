@@ -20,6 +20,7 @@ import app.winters.octo.subsonic.Playlist
 import app.winters.octo.subsonic.SearchResult
 import app.winters.octo.subsonic.Song
 import app.winters.octo.subsonic.SubsonicException
+import app.winters.octo.subsonic.OnlineFind
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -183,6 +184,9 @@ class SearchModel(
     // Where the lengths of songs found online go once the server has
     // looked them up (the player's, so every row shows them).
     private val lengths: RealLengths = RealLengths(),
+    // What to look for online, on a server that lets the app say; null
+    // leaves it to the server.
+    private val find: () -> OnlineFind? = { null },
     // Takes the server's own music a search found that the library lacks
     // into the library (LibraryStore.takeIn), answering whether any of it
     // is in now.
@@ -267,6 +271,7 @@ class SearchModel(
                 artists = if (caps.artists > 0) caps.artists + 1 else 0,
                 albums = if (caps.albums > 0) caps.albums + 1 else 0,
                 songs = if (caps.songs > 0) maxOf(caps.songs + 1, MIN_SONGS) else 0,
+                find = find(),
             )
         }
     }

@@ -238,6 +238,10 @@ object SettingsIndex {
         "library_only", SettingsPage.Library, LIBRARY_ONLY_SETTING, "Leave songs found online out of albums, search, artists and radio",
         listOf("outside", "online", "found", "hide", "only", "my songs", "not in library", "discover"), section = "Songs found online",
     )
+    val OnlineFind = add(
+        "online_find", SettingsPage.Library, "Search online for", "Music, YouTube videos such as ambience and mixes, or both",
+        listOf("youtube", "video", "videos", "ambience", "mix", "search", "online"), section = "Songs found online",
+    )
     val MusicFolders = add(
         "music_folders", SettingsPage.Library, "Music folders", "Leave a folder's music out of your library",
         listOf("folders", "exclude", "hide", "include", "podcasts", "recordings"),

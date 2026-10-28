@@ -477,14 +477,19 @@ class SubsonicClient(
         albums: Int = 20,
         songs: Int = 30,
         musicFolderId: String? = this.musicFolderId,
+        // What Octo looks for online, for a server that lists octoVideos;
+        // null leaves it to the server.
+        find: OnlineFind? = null,
     ): SearchResult =
         get(
             "search3",
-            mapOf(
-                "query" to query,
-                "artistCount" to "$artists",
-                "albumCount" to "$albums",
-                "songCount" to "$songs",
+            (
+                mapOf(
+                    "query" to query,
+                    "artistCount" to "$artists",
+                    "albumCount" to "$albums",
+                    "songCount" to "$songs",
+                ) + listOfNotNull(find?.let { "octoFind" to it.param })
             ).inFolder(musicFolderId),
             "searchResult3",
             SearchResult.serializer(),

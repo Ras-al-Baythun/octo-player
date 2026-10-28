@@ -813,6 +813,7 @@ private fun SongCell(
             MarkedTitle(song, DesktopType.tableTitle, Modifier.weight(1f, fill = false)) { title ->
                 CutTxt(song.title, DesktopType.tableTitle, if (failed != null) muted else OctoColors.TextPrimary, title)
             }
+            if (song.octoVideo) VideoTag()
             if (heartInTitle && !outside && app.isStarred(song)) Glyph(OctoIcons.Liked, size = IconSize.Inline - Space.Xxs, tint = OctoColors.TextSecondary)
             // A song that would not play this time says why on hover.
             if (failed != null) OctoTooltip(failed) { Glyph(OctoIcons.Info, size = IconSize.Inline - Space.Xxs, tint = OctoColors.SignalOrange) }

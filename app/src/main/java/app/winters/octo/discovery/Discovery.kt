@@ -6,6 +6,7 @@ import app.winters.octo.catalog.FIND_PREFIX
 import app.winters.octo.catalog.OnlineDao
 import app.winters.octo.catalog.SourceDao
 import app.winters.octo.catalog.TrackEntity
+import app.winters.octo.catalog.findId
 import app.winters.octo.catalog.isFind
 import app.winters.octo.catalog.matchKey
 import app.winters.octo.catalog.onlineArtwork
@@ -25,9 +26,11 @@ import app.winters.octo.subsonic.Playlist
 import app.winters.octo.subsonic.Song
 import app.winters.octo.subsonic.SubsonicClient
 import app.winters.octo.subsonic.SubsonicException
+import app.winters.octo.player.PlayerSettings
 import dagger.Lazy
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.Serializable
 import javax.inject.Inject
@@ -73,12 +76,15 @@ internal fun madeForYouLists(playlists: List<Playlist>, sourceId: String): List<
 // of, so the "Not in your library" title is never over one that partly is.
 // `arriving` is the server's own music the search found that the library
 // does not have yet: it is none of the above, and takeIn brings it in.
+// `videos` are the songs that are YouTube videos found as themselves (an
+// ambience, a mix), by id, for their rows to say so.
 class Discovered(
     val songs: List<TrackEntity>,
     val albums: List<OnlineAlbum>,
     val artists: List<OnlineArtist>,
     val partAlbums: List<OnlineAlbum> = emptyList(),
     val arriving: Arriving = Arriving.Nothing,
+    val videos: Set<String> = emptySet(),
 ) {
     val isEmpty get() = notInLibraryEmpty && partAlbums.isEmpty()
 
@@ -109,6 +115,7 @@ class Discovery @Inject constructor(
     private val online: OnlineDao,
     // Taken lazily: ServerSync needs PlaylistSync, which needs this.
     private val sync: Lazy<ServerSync>,
+    private val player: PlayerSettings,
 ) {
     // Whether a server is signed in, so there is anything to discover.
     val available: Flow<Boolean> = sessions.state.map { it is SessionState.SignedIn }
@@ -130,7 +137,10 @@ class Discovery @Inject constructor(
 
     suspend fun search(query: String): Discovered? {
         val (client, sourceId) = server() ?: return null
-        val found = client.search(query.trim(), artists = 10, albums = 20, songs = SEARCH_SONGS)
+        // On an Octo that also finds YouTube videos, what the listener wants found.
+        val videosToo = (sessions.state.value as? SessionState.SignedIn)?.session?.findsVideos == true
+        val find = if (videosToo) player.prefs.first().onlineFind else null
+        val found = client.search(query.trim(), artists = 10, albums = 20, songs = SEARCH_SONGS, find = find)
         // The server's own songs and albums the library has not copied yet
         // are not finds: they are left out here and taken in (takeIn).
         val linked = found.song.map { it.id }.distinct().chunked(900)
@@ -153,6 +163,7 @@ class Discovery @Inject constructor(
             artistsNotInLibrary(sourceId, found),
             partAlbums = part.map { it.toOnline(sourceId) },
             arriving = arriving,
+            videos = found.song.filter { it.octoVideo }.mapTo(HashSet()) { findId(it.id) },
         )
     }
 

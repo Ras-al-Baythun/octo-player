@@ -163,6 +163,10 @@ data class Song(
     // library rather than the shared one. Only those can be removed by the
     // member. Unmarked on servers without Family.
     @Serializable(with = LooseBoolean::class) val octoPersonal: Boolean = false,
+    // Octo's mark for a YouTube video found as itself (an ambience, a mix,
+    // an upload) rather than a song: its artist is the channel, and it may
+    // run for hours. Unmarked on servers without octoVideos.
+    @Serializable(with = LooseBoolean::class) val octoVideo: Boolean = false,
 )
 
 @Serializable

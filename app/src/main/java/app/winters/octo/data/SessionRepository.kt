@@ -27,6 +27,7 @@ import app.winters.octo.subsonic.Credentials
 import app.winters.octo.subsonic.MusicFolder
 import app.winters.octo.subsonic.OCTO_PLAYLISTS
 import app.winters.octo.subsonic.OCTO_PREVIEW
+import app.winters.octo.subsonic.OCTO_VIDEOS
 import app.winters.octo.subsonic.OCTO_PREVIEW_LIBRARY_VERSION
 import app.winters.octo.subsonic.ScanStatus
 import app.winters.octo.subsonic.ServerInfo
@@ -90,6 +91,10 @@ class Session(
     // Whether a library song can be offered the choice too, its file then
     // swapped for the video's download (octoPreview from version 2).
     val replacesVersions: Boolean get() = "$OCTO_PREVIEW:$OCTO_PREVIEW_LIBRARY_VERSION" in extensions
+
+    // Whether the server's search also finds YouTube videos (an Octo with
+    // octoVideos), so the app can ask for songs, videos or both.
+    val findsVideos: Boolean get() = "$OCTO_VIDEOS:1" in extensions
 
     // What the server is called: its name, else its host.
     val name: String get() = serverName(label, client.primaryUrl.toString())
