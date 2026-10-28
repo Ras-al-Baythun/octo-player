@@ -50,7 +50,8 @@ const val COMMAND_MARK = ">"
 // What the box lists for what is typed: with ">" first, the commands that
 // match; with nothing typed, the recent searches; otherwise a few commands
 // that match, then the library's songs, artists, albums and playlists, what
-// the server found online, and a way to see everything. `found` is the
+// the server found online, the YouTube videos it found on their own, and a
+// way to see everything. `found` is the
 // last answer to the search, kept while a newer one is on its way.
 fun omniSections(text: String, found: SearchFound?, commands: List<Command>, recent: List<String>): List<OmniSection> {
     val typed = text.trim()
@@ -76,14 +77,11 @@ fun omniSections(text: String, found: SearchFound?, commands: List<Command>, rec
         }
         val outside = found?.outside
         if (outside != null && !outside.isEmpty) {
-            val songs = outside.songs
-            add(
-                OmniSection(
-                    "Not in your library",
-                    songs.take(OUTSIDE).mapIndexed { i, song -> OmniItem.SongHit(song, songs, i, outside = true) } +
-                        outside.albums.take(1).map { OmniItem.AlbumHit(it, outside = true) },
-                ),
-            )
+            val (videos, songs) = outside.songs.partition { it.octoVideo }
+            val notHeld = songs.take(OUTSIDE).mapIndexed { i, song -> OmniItem.SongHit(song, songs, i, outside = true) } +
+                outside.albums.take(1).map { OmniItem.AlbumHit(it, outside = true) }
+            if (notHeld.isNotEmpty()) add(OmniSection("Not in your library", notHeld))
+            if (videos.isNotEmpty()) add(OmniSection("YouTube videos", videos.take(OUTSIDE).mapIndexed { i, video -> OmniItem.SongHit(video, videos, i, outside = true) }))
         }
         if (found != null) add(OmniSection("", listOf(OmniItem.SeeAll(typed))))
     }

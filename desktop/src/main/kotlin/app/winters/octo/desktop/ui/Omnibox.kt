@@ -300,7 +300,11 @@ private fun OmniLine(app: AppState, item: OmniItem, lit: Boolean, onHover: () ->
             is OmniItem.SeeAll -> IconBox(OctoIcons.Search)
         }
         Column(Modifier.weight(1f)) {
-            MarkedTitle((item as? OmniItem.SongHit)?.song, DesktopType.emphasis) { Txt(title, DesktopType.emphasis, modifier = it) }
+            val song = (item as? OmniItem.SongHit)?.song
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Space.S)) {
+                MarkedTitle(song, DesktopType.emphasis, Modifier.weight(1f, fill = false)) { Txt(title, DesktopType.emphasis, modifier = it) }
+                if (song?.octoVideo == true) VideoTag()
+            }
             if (detail.isNotEmpty()) Txt(detail, DesktopType.meta, OctoColors.TextSecondary)
         }
         if (lit && verb.isNotEmpty()) Txt(verb, DesktopType.meta, OctoColors.TextMuted)

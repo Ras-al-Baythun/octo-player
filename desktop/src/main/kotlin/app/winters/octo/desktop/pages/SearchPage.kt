@@ -1,6 +1,7 @@
 package app.winters.octo.desktop.pages
 
 import app.winters.octo.desktop.ui.MarkedTitle
+import app.winters.octo.desktop.ui.VideoTag
 import app.winters.octo.design.Corner
 import app.winters.octo.design.FrameSize
 import app.winters.octo.desktop.ui.PlaylistPicture
@@ -173,8 +174,9 @@ private fun LazyListScope.after(app: AppState, found: SearchFound) {
                 Txt("Found online by your server. Press + to add a song to your library.", OctoType.caption, OctoColors.TextMuted, Modifier.padding(bottom = 8.dp))
             }
         }
-        if (outside.songs.isNotEmpty()) {
-            itemsIndexed(outside.songs, key = { i, s -> "out:$i:${s.id}" }) { index, song -> OutsideSong(app, outside.songs, index, song) }
+        val (videos, songs) = outside.songs.partition { it.octoVideo }
+        if (songs.isNotEmpty()) {
+            itemsIndexed(songs, key = { i, s -> "out:$i:${s.id}" }) { index, song -> OutsideSong(app, songs, index, song) }
         }
         if (outside.albums.isNotEmpty()) {
             item(key = "out-albums") {
@@ -187,6 +189,12 @@ private fun LazyListScope.after(app: AppState, found: SearchFound) {
                 Txt("Artists", OctoType.label, OctoColors.TextSecondary, Modifier.padding(top = 16.dp, bottom = 4.dp))
                 CardRow(outside.artists.size) { i -> ArtistCard(app, outside.artists[i], outside = true) }
             }
+        }
+        // YouTube videos found as themselves (an ambience, a mix, an upload),
+        // apart from the songs so a click plays on through videos only.
+        if (videos.isNotEmpty()) {
+            item(key = "out-videos") { Txt("YouTube videos", OctoType.label, OctoColors.TextSecondary, Modifier.padding(top = 16.dp, bottom = 4.dp)) }
+            itemsIndexed(videos, key = { i, s -> "vid:$i:${s.id}" }) { index, video -> OutsideSong(app, videos, index, video) }
         }
     }
 }
@@ -228,7 +236,10 @@ private fun OutsideSong(app: AppState, songs: List<Song>, index: Int, song: Song
     ) {
         Cover(song.coverArt, Modifier.size(38.dp), shape = RoundedCornerShape(6.dp), online = outside, placeholder = OctoIcons.Songs)
         Column(Modifier.weight(1f)) {
-            MarkedTitle(song, OctoType.bodySmall) { Txt(song.title, OctoType.bodySmall, modifier = it) }
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                MarkedTitle(song, OctoType.bodySmall, Modifier.weight(1f, fill = false)) { Txt(song.title, OctoType.bodySmall, modifier = it) }
+                if (song.octoVideo) VideoTag()
+            }
             Txt(listOfNotNull(song.displayArtist ?: song.artist, song.album).joinToString(" · "), OctoType.caption, OctoColors.TextMuted)
         }
         Txt(lengthText(app.realSeconds(song) ?: (knownLengthMs(song) / 1000).toInt()), OctoType.caption, OctoColors.TextMuted, Modifier.width(52.dp))

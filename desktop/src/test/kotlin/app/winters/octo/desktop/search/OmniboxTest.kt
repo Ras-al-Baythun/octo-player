@@ -55,6 +55,25 @@ class OmniboxTest {
     }
 
     @Test
+    fun youTubeVideosFoundOnlineGetTheirOwnSection() {
+        val found = SearchFound(
+            LibraryResults(),
+            OutsideResults(songs = listOf(Song("v1", "Ba Sing Se", octoVideo = true), Song("x1", "Found online"), Song("v2", "Rain", octoVideo = true))),
+        )
+        val sections = omniSections("ba sing se", found, emptyList(), emptyList())
+        assertEquals(listOf("Not in your library", "YouTube videos", ""), sections.map { it.title })
+        val videos = sections[1].items.map { it as OmniItem.SongHit }
+        assertEquals(listOf("v1", "v2"), videos.map { it.song.id })
+        assertEquals("playing a video plays on through the videos", listOf("v1", "v2"), videos[1].list.map { it.id })
+    }
+
+    @Test
+    fun onlyVideosFoundLeaveNoEmptySongSection() {
+        val found = SearchFound(LibraryResults(), OutsideResults(songs = listOf(Song("v1", "Ba Sing Se", octoVideo = true))))
+        assertEquals(listOf("YouTube videos", ""), omniSections("ba sing se", found, emptyList(), emptyList()).map { it.title })
+    }
+
+    @Test
     fun beforeAnyAnswerOnlyCommandsShow() {
         assertEquals(listOf("Commands"), omniSections("songs", null, commands, emptyList()).map { it.title })
     }
